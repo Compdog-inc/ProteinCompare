@@ -73,7 +73,7 @@ namespace ProteinCompare
                 });
             });
         }
-
+    
         public int Start()
         {
             if (options.Files == null)
@@ -110,6 +110,8 @@ namespace ProteinCompare
 
             logger.Info("{file_count} file(s) loaded.", tables.Count);
 
+            int proteinCount = 0;
+
             for (int i = 0; i < tables.Count; i++)
             {
                 logger.Trace("Converting proteins {progress}/{total}", i + 1, tables.Count);
@@ -120,12 +122,15 @@ namespace ProteinCompare
                         if (ProteinDetector.GetProtein(row.Values[0], out string protein))
                         {
                             row.AttachedData = protein;
+                            proteinCount++;
                         }
                     }
                 }
             }
 
-            logger.Info("Attached detected protein data.");
+            logger.Info("Attached {protein_cont} protein(s).", proteinCount);
+
+            
 
             return 0;
         }
