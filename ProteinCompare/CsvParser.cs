@@ -1,0 +1,143 @@
+﻿using NLog;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ProteinCompare
+{
+    public enum CsvType
+    {
+        Boolean = 0,
+        Number = 1,
+        Double = 2,
+        Time = 3,
+        Date = 4,
+        Timestamp = 5,
+        String = 6
+    }
+
+    public static class CsvParser
+    {
+        private static Logger logger = LogManager.GetCurrentClassLogger();
+
+        public static bool TryParseBoolean(string content, out bool value)
+        {
+            if (
+                content.Equals("true", StringComparison.InvariantCultureIgnoreCase) ||
+                content.Equals("yes", StringComparison.InvariantCultureIgnoreCase)
+                )
+            {
+                value = true;
+                return true;
+            }
+            else if (
+                content.Equals("false", StringComparison.InvariantCultureIgnoreCase) ||
+                content.Equals("no", StringComparison.InvariantCultureIgnoreCase)
+                )
+            {
+                value = false;
+                return true;
+            }
+            value = false;
+            return false;
+        }
+
+        public static bool TryParseNumber(string content, out long value)
+        {
+            if (!content.Contains('.'))
+            {
+                return long.TryParse(content, out value);
+            }
+            value = 0;
+            return false;
+        }
+
+        public static bool TryParseDouble(string content, out double value)
+        {
+            if (content.Contains('.'))
+            {
+                return double.TryParse(content, out value);
+            }
+            value = double.NaN;
+            return false;
+        }
+
+        public static bool TryParseTime(string content, out TimeOnly value)
+        {
+            return TimeOnly.TryParse(content, out value);
+        }
+
+        public static bool TryParseDate(string content, out DateOnly value)
+        {
+            return DateOnly.TryParse(content, out value);
+        }
+
+        public static bool TryParseTimestamp(string content, out DateTime value)
+        {
+            return DateTime.TryParse(content, out value);
+        }
+
+        public static CsvType DetectContentType(string content)
+        {
+            if (TryParseBoolean(content, out _))
+                return CsvType.Boolean;
+            if (TryParseNumber(content, out _))
+                return CsvType.Number;
+            if (TryParseDouble(content, out _))
+                return CsvType.Double;
+            if (TryParseTime(content, out _))
+                return CsvType.Time;
+            if (TryParseDate(content, out _))
+                return CsvType.Date;
+            if (TryParseTimestamp(content, out _))
+                return CsvType.Timestamp;
+            return CsvType.String; // anything can be a string
+        }
+
+        public static CsvType[] TryDetectColumnTypes(string[] sample, CsvDialect dialect)
+        {
+            List<CsvType>[]? possibleColumnTypes = null;
+
+            foreach (var row in sample)
+            {
+                var columns = CsvTransformer.TransformRow(row, dialect);
+                if (possibleColumnTypes == null)
+                    possibleColumnTypes = new List<CsvType>[columns.Length];
+                else if (columns.Length != possibleColumnTypes.Length)
+                {
+                    logger.Error("TryDetectColumnTypes error: column mismatch {current_length} != {target_length}", columns.Length, possibleColumnTypes.Length);
+                    continue;
+                }
+
+                for (int i = 0; i < possibleColumnTypes.Length; i++)
+                {
+                    var type = DetectContentType(columns[i]);
+                    if (!possibleColumnTypes[i].Contains(type))
+                        possibleColumnTypes[i].Add(type);
+                }
+            }
+
+            if (possibleColumnTypes == null)
+            {
+                logger.Fatal("TryDetectColumnTypes failed: possibleColumnTypes is null");
+                return Array.Empty<CsvType>();
+            }
+
+            CsvType[] columnTypes = new CsvType[possibleColumnTypes.Length];
+            for (int i = 0; i < columnTypes.Length; i++)
+            {
+                int org = (int)CsvType.String;
+                foreach (var type in possibleColumnTypes[i])
+                {
+                    if ((int)type < org)
+                        org = (int)type; // lowest takes priority
+                }
+                columnTypes[i] = (CsvType)org;
+            }
+
+            return columnTypes;
+        }
+    }
+}
