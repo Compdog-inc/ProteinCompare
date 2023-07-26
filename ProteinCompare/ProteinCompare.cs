@@ -7,6 +7,8 @@ namespace ProteinCompare
 {
     class ProteinCompare
     {
+        private static Logger logger = LogManager.GetCurrentClassLogger();
+
         public class Options
         {
             [Option('v', "verbose", Required = false, HelpText = "Enable verbose messages.", Default = false)]
@@ -62,8 +64,6 @@ namespace ProteinCompare
 
         public int Start()
         {
-            var logger = LogManager.GetCurrentClassLogger();
-
             logger.Trace(FileParser.Parse(options.Files!).Aggregate((a, b) => a + ", " + b));
 
             return 0;
