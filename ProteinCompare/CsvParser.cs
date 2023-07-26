@@ -56,6 +56,12 @@ namespace ProteinCompare
 
         public static bool TryParseDouble(string content, out double value)
         {
+            if(content == "NaN")
+            {
+                value = double.NaN;
+                return true;
+            }
+
             if (content.Contains('.'))
             {
                 return double.TryParse(content, out value);
