@@ -15,7 +15,7 @@ namespace ProteinCompare
         {
             text = text.ReplaceLineEndings("\n");
             var raw_rows = CsvTransformer.TransformText(text, rowDelimiter);
-            var sample = raw_rows[..Math.Min(raw_rows.Length - 1, sampleSize)];
+            var sample = raw_rows[..Math.Min(raw_rows.Length, sampleSize)];
             logger.Trace("Detecting CSV with {row_length} row(s) using {sample_size} sample size.", raw_rows.Length, sample.Length);
 
             CsvDialect dialect = CsvDialect.Detect(sample, safeRowCount, columnDelimiters);
