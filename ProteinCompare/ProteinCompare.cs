@@ -14,7 +14,10 @@ namespace ProteinCompare
             [Option('v', "verbose", Required = false, HelpText = "Enable verbose messages.", Default = false)]
             public bool Verbose { get; set; }
 
-            [Value(0, MetaName = "[...files]", MetaValue = "<string>", HelpText = "List of paths to protein files (separated by spaces)")]
+            [Option('d', "delimiters", Required = false, MetaValue = "<char>", HelpText = "Add custom CSV delimiters.")]
+            public IEnumerable<char>? Delimiters { get; set; }
+
+            [Value(0, MetaName = "[...files]", MetaValue = "<string>", HelpText = "List of paths to protein files (separated by spaces and supports wildcards)")]
             public IEnumerable<string>? Files { get; set; }
         }
 
@@ -64,7 +67,32 @@ namespace ProteinCompare
 
         public int Start()
         {
-            logger.Trace(FileParser.Parse(options.Files!).Aggregate((a, b) => a + ", " + b));
+            if (options.Files == null)
+            {
+                logger.Warn("Files is null - treating same as empty.");
+                return 0;
+            }
+
+            var files = FileParser.Parse(options.Files).ToArray();
+            logger.Debug("Using protein files: [{files}]", files);
+
+            if (files.Length == 0)
+            {
+                return 0;
+            }
+
+            logger.Trace("Filtering protein files");
+            files = files.Where(FileFilter.FilterPaths).ToArray();
+            logger.Trace("Found {valid_files} valid file(s)", files.Length);
+
+            List<CsvTable> tables = new(files.Length);
+            foreach (var file in files)
+            {
+                tables.Add(CsvReader.ReadFile(file, '\n', 256, 2));
+                logger.Trace("Loaded table {path}", file);
+            }
+
+            logger.Info("{file_count} file(s) loaded.", tables.Count);
 
             return 0;
         }
