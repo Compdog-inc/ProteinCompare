@@ -2,7 +2,7 @@
   "profiles": {
     "Verbose": {
       "commandName": "Project",
-      "commandLineArgs": "-v test/*.csv test/attract_fascin_a.tsv ./*//*.* /test */ *.*"
+      "commandLineArgs": "-v test/*.csv test/attract_fascin_a.tsv ./*//*.* ./*//d/*.* ./test */ *.*"
     },
     "Default": {
       "commandName": "Project",
