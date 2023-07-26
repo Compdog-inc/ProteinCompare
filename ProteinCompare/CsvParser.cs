@@ -114,6 +114,8 @@ namespace ProteinCompare
                 for (int i = 0; i < possibleColumnTypes.Length; i++)
                 {
                     var type = DetectContentType(columns[i]);
+                    if (possibleColumnTypes[i] == null)
+                        possibleColumnTypes[i] = new List<CsvType>();
                     if (!possibleColumnTypes[i].Contains(type))
                         possibleColumnTypes[i].Add(type);
                 }
