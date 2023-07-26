@@ -13,7 +13,6 @@ namespace ProteinCompare
 
         public static bool GetProtein(string text, out string protein)
         {
-            // TODO: add protein value checking
             protein = string.Empty;
 
             if (text.StartsWith("Protein: ", StringComparison.InvariantCultureIgnoreCase))
@@ -25,8 +24,14 @@ namespace ProteinCompare
                     var protein_parts = parts[1].Split('(', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     if(protein_parts.Length > 0)
                     {
-                        protein = protein_parts[0];
-                        return true;
+                        if (protein_parts[0].Length <= 10)
+                        {
+                            protein = protein_parts[0];
+                            return true;
+                        } else
+                        {
+                            logger.Trace("RBPmap fail: suspiciously long protein {protein}", protein_parts[0]);
+                        }
                     } else
                     {
                         logger.Trace("RBPmap fail: invalid split '('");
@@ -41,16 +46,31 @@ namespace ProteinCompare
                 var parts = text.Split('_', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 if(parts.Length > 1)
                 {
-                    protein = parts[1];
-                    return true;
+                    if (parts[1].Length <= 10)
+                    {
+                        protein = parts[1];
+                        return true;
+                    }
+                    else
+                    {
+                        logger.Trace("catrapid fail: suspiciously long protein {protein}", parts[1]);
+                    }
                 } else
                 {
                     logger.Trace("catrapid fail: invalid split '_'");
                 }
-            } else
+            } else if(text.All(char.IsLetterOrDigit))
             {
-                protein = text;
-                return true;
+                // alphanumeric
+                if (text.Length <= 10)
+                {
+                    protein = text;
+                    return true;
+                }
+                else
+                {
+                    logger.Trace("alphanumeric fail: suspiciously long protein {protein}", text);
+                }
             }
             return false;
         }
