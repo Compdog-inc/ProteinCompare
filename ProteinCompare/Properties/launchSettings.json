@@ -1,16 +1,16 @@
 {
   "profiles": {
-    "Verbose": {
+    "Count": {
       "commandName": "Project",
-      "commandLineArgs": "count --verbose -- test/*.csv test/*.tsv"
+      "commandLineArgs": "count -v -- test/*.csv test/*.tsv"
     },
-    "NoError": {
+    "CountMerge": {
       "commandName": "Project",
-      "commandLineArgs": "count --noerror -- test/*.csv test/*.tsv"
+      "commandLineArgs": "count --preprocess Intersect --no-error --ignore-case --merge -- test/*.csv test/*.tsv"
     },
-    "Default": {
+    "Intersect": {
       "commandName": "Project",
-      "commandLineArgs": "count test/*.csv test/*.tsv"
+      "commandLineArgs": "intersect -c -v -- test/*.csv test/*.tsv"
     },
     "Help": {
       "commandName": "Project",

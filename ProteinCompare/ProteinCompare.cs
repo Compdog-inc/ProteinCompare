@@ -2,9 +2,34 @@
 using NLog;
 using NLog.Layouts;
 using NLog.Targets;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ProteinCompare
 {
+    class StringComparer : IEqualityComparer<string>
+    {
+        public bool IgnoreCase { get; set; }
+
+        public StringComparer(bool ignoreCase)
+        {
+            this.IgnoreCase = ignoreCase;
+        }
+
+        public bool Equals(string? x, string? y)
+        {
+            if (x == null && y == null)
+                return true;
+            if (x == null || y == null) return false;
+
+            return x.Equals(y, IgnoreCase ? StringComparison.InvariantCultureIgnoreCase : StringComparison.InvariantCulture);
+        }
+
+        public int GetHashCode([DisallowNull] string obj)
+        {
+            return obj.ToUpperInvariant().GetHashCode();
+        }
+    }
+
     class ProteinCompare
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
@@ -14,13 +39,13 @@ namespace ProteinCompare
             [Option('v', "verbose", Required = false, HelpText = "Enable verbose messages.", Default = false)]
             public bool Verbose { get; set; }
 
-            [Option('e', "noerror", Required = false, HelpText = "Disable WARN and ERROR messages.", Default = false)]
+            [Option('e', "no-error", Required = false, HelpText = "Disable WARN and ERROR messages.", Default = false)]
             public bool NoError { get; set; }
 
             [Option('d', "delimiters", Required = false, MetaValue = "<char>", HelpText = "Add custom CSV column delimiters used for detection.")]
             public IEnumerable<char>? Delimiters { get; set; }
 
-            [Option('r', "rowdelim", Required = false, MetaValue = "<char>", HelpText = "(Default: \\n) Custom row delimiter for parsing.")]
+            [Option('r', "row-delimiter", Required = false, MetaValue = "<char>", HelpText = "(Default: \\n) Custom row delimiter for parsing.")]
             public char? RowDelimiter { get; set; }
 
             [Option('s', "sample", Required = false, Default = 256, MetaValue = "<int:(row count)>", HelpText = "Set CSV table sample size in rows for detection.")]
@@ -38,6 +63,12 @@ namespace ProteinCompare
                 [Option('m', "merge", Required = false, Default = false, HelpText = "Set to output a single list of all proteins in all files.\nIf not set, makes a list for every file and doesn't count references from other files.")]
                 public bool Merge { get; set; }
 
+                [Option('c', "ignore-case", Required = false, Default = false, HelpText = "Set to ignore case when comparing proteins.")]
+                public bool IgnoreCase { get; set; }
+
+                [Option('k', "preprocess", Required = false, HelpText = "Set to preprocess input." , MetaValue = "<None|Intersect>", Default = Preprocessors.None)]
+                public Preprocessors Preprocessor { get; set; }
+
                 [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the count.")]
                 public IEnumerable<string>? ExcludedProteins { get; set; }
 
@@ -48,11 +79,20 @@ namespace ProteinCompare
                 public int SampleSize { get; set; }
                 public int SafeRowCount { get; set; }
                 public IEnumerable<string>? Files { get; set; }
+
+                public enum Preprocessors
+                {
+                    None,
+                    Intersect
+                }
             }
 
-            [Verb("intersect", HelpText = "Intersects all files into a single list of unique proteins.")]
+            [Verb("intersect", HelpText = "Intersects all files into a single list of proteins.")]
             public class Intersect : GlobalOptions
             {
+                [Option('c', "ignore-case", Required = false, Default = false, HelpText = "Set to ignore case when comparing proteins.")]
+                public bool IgnoreCase { get; set; }
+
                 [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the intersection.")]
                 public IEnumerable<string>? ExcludedProteins { get; set; }
 
@@ -182,6 +222,37 @@ namespace ProteinCompare
             int exit = Load();
             if (exit != 0) return exit;
 
+            Dictionary<string, uint>[] lists;
+
+            if (options.Preprocessor == GlobalOptions.Count.Preprocessors.Intersect)
+            {
+                logger.Info("Preprocessing with Intersect");
+                var intersected = ProteinIntersect.Run(tables, options.ExcludedProteins, options.IgnoreCase);
+                if (options.Merge)
+                {
+                    lists = ProteinCounter.RunMergedList(tables, options.ExcludedProteins, options.IgnoreCase, intersected);
+                }
+                else
+                {
+                    logger.Fatal("Nothing to intersect when tables_per_list is 1. Make sure to enable merging when preprocessing with intersect.");
+                    return 1;
+                }
+            }
+            else
+            {
+                if (options.Merge)
+                {
+                    lists = ProteinCounter.RunMerged(tables, options.ExcludedProteins, options.IgnoreCase);
+                }
+                else
+                {
+                    lists = ProteinCounter.Run(tables, options.ExcludedProteins, options.IgnoreCase);
+                }
+            }
+
+            logger.Info("Count completed with {list_count} list(s).", lists.Length);
+            OutputFormatter.PrintProteinCounts(lists);
+
             return 0;
         }
 
@@ -189,6 +260,10 @@ namespace ProteinCompare
         {
             int exit = Load();
             if (exit != 0) return exit;
+
+            var list = ProteinIntersect.Run(tables, options.ExcludedProteins, options.IgnoreCase);
+
+            OutputFormatter.PrintProteinList(list);
 
             return 0;
         }
