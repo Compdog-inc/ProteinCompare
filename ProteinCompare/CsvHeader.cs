@@ -8,7 +8,7 @@ namespace ProteinCompare
 {
     public static class CsvHeader
     {
-        public static CsvColumn[] DetectHeader(string[] sample, CsvDialect dialect, int safeRowCount)
+        public static CsvColumn[] DetectHeader(string[] sample, CsvDialect dialect, int safeRowCount, out bool hasHeader)
         {
             var firstRow = CsvTransformer.TransformRow(sample[0], dialect);
             var columnTypes = CsvParser.TryDetectColumnTypes(sample, dialect, safeRowCount);
@@ -37,10 +37,12 @@ namespace ProteinCompare
 
             if (possiblyHeader)
             {
+                hasHeader = true;
                 return columnTypes.Select((t, i) => new CsvColumn(firstRow[i], t)).ToArray();
             }
             else
             {
+                hasHeader = false;
                 return columnTypes.Select(t => new CsvColumn(t)).ToArray();
             }
         }

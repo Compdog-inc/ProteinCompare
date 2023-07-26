@@ -10,11 +10,13 @@ namespace ProteinCompare
     {
         public CsvColumn[] Columns { get; set; }
         public CsvRow[] Rows { get; set; }
+        public bool HasHeader { get; set; }
 
-        public CsvTable(CsvColumn[] columns, CsvRow[] rows)
+        public CsvTable(CsvColumn[] columns, CsvRow[] rows, bool hasHeader)
         {
             Columns = columns;
             Rows = rows;
+            HasHeader = hasHeader;
         }
     }
 

@@ -19,7 +19,7 @@ namespace ProteinCompare
             logger.Trace("Detecting CSV with {row_length} row(s) using {sample_size} sample size.", raw_rows.Length, sample.Length);
 
             CsvDialect dialect = CsvDialect.Detect(sample, safeRowCount, columnDelimiters);
-            CsvColumn[] columns = CsvHeader.DetectHeader(sample, dialect, safeRowCount);
+            CsvColumn[] columns = CsvHeader.DetectHeader(sample, dialect, safeRowCount, out bool hasHeader);
             CsvRow[] rows = new CsvRow[raw_rows.Length];
 
             for (int i = 0; i < rows.Length; i++)
@@ -35,7 +35,7 @@ namespace ProteinCompare
                 rows[i] = new CsvRow(i, csvValues);
             }
 
-            return new CsvTable(columns, rows);
+            return new CsvTable(columns, rows, hasHeader);
         }
 
         public static CsvTable ReadFile(string path, char rowDelimiter, int sampleSize, int safeRowCount, params char[] columnDelimiters)
