@@ -18,93 +18,93 @@ namespace ProteinCompare
             return text.Split(rowDelimiter);
         }
 
+        public static bool TryEscape(string sequence, CsvDialect dialect, out char escapedChar)
+        {
+            escapedChar = '\0';
+            if (dialect.Escape == null || string.IsNullOrEmpty(sequence) || sequence[0] != dialect.Escape)
+                return false;
+
+            if (sequence.Length > 1)
+            {
+                // detect escaped char and skip escape sequence
+                switch (sequence[1])
+                {
+                    case 't':
+                        escapedChar = '\t';
+                        return true;
+                    case 'b':
+                        escapedChar = '\b';
+                        return true;
+                    case 'n':
+                        escapedChar = '\n';
+                        return true;
+                    case 'r':
+                        escapedChar = '\r';
+                        return true;
+                    case 'f':
+                        escapedChar = '\f';
+                        return true;
+                    case 's':
+                        escapedChar = ' ';
+                        return true;
+                    case '\'':
+                        escapedChar = '\'';
+                        return true;
+                    case '"':
+                        escapedChar = '"';
+                        return true;
+                    case '\\':
+                        escapedChar = '\\';
+                        return true;
+                    default:
+                        if (dialect.Quote != null && sequence[1] == dialect.Quote)
+                        {
+                            // quote escaped
+                            escapedChar = dialect.Quote ?? '\0';
+                            return true;
+                        }
+                        return false;
+                }
+            }
+
+            return false;
+        }
+
         public static string[] TransformRow(string row, CsvDialect dialect)
         {
-            var columns = row.Split(dialect.Delimiter);
+            bool inColumn = false;
+            List<string> columns = new();
+            StringBuilder currentColumn = new();
 
-            // remove quotes
-            if (dialect.Quote != null)
+            for (int i = 0; i < row.Length; i++)
             {
-                for (int i = 0; i < columns.Length; i++)
+                // only escape if inside column contents
+                if ((inColumn || dialect.Quote == null) && TryEscape(row[i..], dialect, out char escapedChar))
                 {
-                    columns[i] = columns[i][1..^1];
+                    currentColumn.Append(escapedChar);
+                    i++;
+                }
+                else if (dialect.Quote != null && row[i] == dialect.Quote) // detect quotes
+                {
+                    inColumn = !inColumn;
+                }
+                else if ((!inColumn || dialect.Quote == null) && row[i] == dialect.Delimiter)
+                {
+                    columns.Add(currentColumn.ToString());
+                    currentColumn.Clear();
+                }
+                else
+                {
+                    currentColumn.Append(row[i]);
                 }
             }
 
-            // remove escape
-            if (dialect.Escape != null)
+            if(currentColumn.Length > 0)
             {
-                for (int i = 0; i < columns.Length; i++)
-                {
-                    StringBuilder sb = new();
-
-                    for (int j = 0; j < columns[i].Length; j++)
-                    {
-                        if (columns[i][j] == dialect.Escape && j < columns[i].Length - 1)
-                        {
-                            // detect escaped char and skip escape sequence
-                            switch (columns[i][j + 1])
-                            {
-                                case 't':
-                                    sb.Append('\t');
-                                    j++;
-                                    break;
-                                case 'b':
-                                    sb.Append('\b');
-                                    j++;
-                                    break;
-                                case 'n':
-                                    sb.Append('\n');
-                                    j++;
-                                    break;
-                                case 'r':
-                                    sb.Append('\r');
-                                    j++;
-                                    break;
-                                case 'f':
-                                    sb.Append('\f');
-                                    j++;
-                                    break;
-                                case 's':
-                                    sb.Append(' ');
-                                    j++;
-                                    break;
-                                case '\'':
-                                    sb.Append('\'');
-                                    j++;
-                                    break;
-                                case '"':
-                                    sb.Append('"');
-                                    j++;
-                                    break;
-                                case '\\':
-                                    sb.Append('\\');
-                                    j++;
-                                    break;
-                                default:
-                                    if (columns[i][j + 1] == dialect.Quote && dialect.Quote != null)
-                                    {
-                                        // quote escaped
-                                        sb.Append(dialect.Quote);
-                                        j++;
-                                    } else
-                                    {
-                                        logger.Trace("Unknown escape sequence {char}", columns[i][j + 1]);
-                                    }
-                                    break;
-                            }
-                        }
-                        else
-                        {
-                            sb.Append(columns[i][j]);
-                        }
-                    }
-
-                    columns[i] = sb.ToString();
-                }
+                columns.Add(currentColumn.ToString());
             }
 
-            return columns;
+            return columns.ToArray();
         }
     }
 }
