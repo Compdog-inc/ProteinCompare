@@ -27,7 +27,7 @@ namespace ProteinCompare
             {
                 for (int i = 0; i < columns.Length; i++)
                 {
-                    columns[i] = columns[i][1..^2];
+                    columns[i] = columns[i][1..^1];
                 }
             }
 

@@ -119,7 +119,7 @@ namespace ProteinCompare
                     if (quote == null)
                         content = column;
                     else
-                        content = column[1..^2];
+                        content = column[1..^1];
 
                     if (content.Length > 0)
                     {
