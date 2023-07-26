@@ -26,7 +26,7 @@ namespace ProteinCompare
             Escape = escape;
         }
 
-        public static bool TryParseDelimiter(string[] sample, char delimiter, out int columnCount)
+        public static bool TryParseDelimiter(string[] sample, char delimiter, out int columnCount, int safeRowCount)
         {
             logger.Trace("Trying to parse delimiter {delimiter}", delimiter);
             columnCount = -1;
@@ -42,9 +42,9 @@ namespace ProteinCompare
                 else if (tmp != columnCount) // column count not consistent
                 {
                     logger.Error("TryParseDelimiter failed: {current_count} != {target_count} @ {row}", tmp, columnCount, sample[i]);
-                    if (i == 1)
+                    if (i <= safeRowCount)
                     {
-                        logger.Warn("TryParseDelimiter failed on second row. Possible header, resetting columns");
+                        logger.Warn("TryParseDelimiter failed on safe row. Possible header, resetting columns");
                         columnCount = tmp;
                     }
                     else
@@ -156,7 +156,7 @@ namespace ProteinCompare
         /// <summary>
         /// Tries to detect dialect from csv sample
         /// </summary>
-        public static CsvDialect Detect(string[] sample, params char[] delimiters)
+        public static CsvDialect Detect(string[] sample, int safeRowCount, params char[] delimiters)
         {
             // delimiter detection
             var delims = delimiters.Concat(PossibleDelimiters).Distinct().ToArray();
@@ -164,7 +164,7 @@ namespace ProteinCompare
 
             var tries = delims.Select(d =>
             {
-                bool possible = TryParseDelimiter(sample, d, out int columnCount);
+                bool possible = TryParseDelimiter(sample, d, out int columnCount, safeRowCount);
                 return (possible, columnCount);
             }).ToArray();
 

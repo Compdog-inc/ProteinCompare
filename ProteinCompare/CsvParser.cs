@@ -96,7 +96,7 @@ namespace ProteinCompare
             return CsvType.String; // anything can be a string
         }
 
-        public static CsvType[] TryDetectColumnTypes(string[] sample, CsvDialect dialect)
+        public static CsvType[] TryDetectColumnTypes(string[] sample, CsvDialect dialect, int safeRowCount)
         {
             List<CsvType>[]? possibleColumnTypes = null;
 
@@ -108,9 +108,9 @@ namespace ProteinCompare
                 else if (columns.Length != possibleColumnTypes.Length)
                 {
                     logger.Error("TryDetectColumnTypes error: column mismatch {current_length} != {target_length}", columns.Length, possibleColumnTypes.Length);
-                    if (r == 1)
+                    if (r <= safeRowCount)
                     {
-                        logger.Warn("TryDetectColumnTypes failed on second row. Possible header, resetting columns");
+                        logger.Warn("TryDetectColumnTypes failed on safe row. Possible header, resetting columns");
                         possibleColumnTypes = new List<CsvType>[columns.Length];
                     }
                     else
