@@ -88,8 +88,15 @@ namespace ProteinCompare
             List<CsvTable> tables = new(files.Length);
             foreach (var file in files)
             {
-                tables.Add(CsvReader.ReadFile(file, '\n', 256, 2));
-                logger.Trace("Loaded table {path}", file);
+                try
+                {
+                    tables.Add(CsvReader.ReadFile(file, '\n', 256, 2));
+                    logger.Trace("Loaded table {path}", file);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Error loading file {file}", file);
+                }
             }
 
             logger.Info("{file_count} file(s) loaded.", tables.Count);
