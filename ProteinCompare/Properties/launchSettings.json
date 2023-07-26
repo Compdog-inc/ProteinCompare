@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Verbose": {
+      "commandName": "Project",
+      "commandLineArgs": "-v test/*.csv test/attract_fascin_a.tsv ./*//*.* /test */ *.*"
+    },
+    "Default": {
+      "commandName": "Project",
+      "commandLineArgs": "test/*.csv test/attract_fascin_a.tsv"
+    },
+    "Help": {
+      "commandName": "Project",
+      "commandLineArgs": "--help"
+    }
+  }
+}
