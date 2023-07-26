@@ -2,15 +2,19 @@
   "profiles": {
     "Verbose": {
       "commandName": "Project",
-      "commandLineArgs": "--verbose -- test/*.csv test/*.tsv"
+      "commandLineArgs": "count --verbose -- test/*.csv test/*.tsv"
+    },
+    "NoError": {
+      "commandName": "Project",
+      "commandLineArgs": "count --noerror -- test/*.csv test/*.tsv"
     },
     "Default": {
       "commandName": "Project",
-      "commandLineArgs": "test/*.csv test/*.tsv"
+      "commandLineArgs": "count test/*.csv test/*.tsv"
     },
     "Help": {
       "commandName": "Project",
-      "commandLineArgs": "--help"
+      "commandLineArgs": "help count"
     }
   }
 }

@@ -9,10 +9,13 @@ namespace ProteinCompare
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        public class Options
+        public interface GlobalOptions
         {
             [Option('v', "verbose", Required = false, HelpText = "Enable verbose messages.", Default = false)]
             public bool Verbose { get; set; }
+
+            [Option('e', "noerror", Required = false, HelpText = "Disable WARN and ERROR messages.", Default = false)]
+            public bool NoError { get; set; }
 
             [Option('d', "delimiters", Required = false, MetaValue = "<char>", HelpText = "Add custom CSV column delimiters used for detection.")]
             public IEnumerable<char>? Delimiters { get; set; }
@@ -28,6 +31,39 @@ namespace ProteinCompare
 
             [Value(0, MetaName = "[...files]", MetaValue = "<string:(path)>", HelpText = "List of paths to protein files (separated by spaces and supports wildcards)")]
             public IEnumerable<string>? Files { get; set; }
+
+            [Verb("count", HelpText = "Counts the number of references to each unique protein.")]
+            public class Count : GlobalOptions
+            {
+                [Option('m', "merge", Required = false, Default = false, HelpText = "Set to output a single list of all proteins in all files.\nIf not set, makes a list for every file and doesn't count references from other files.")]
+                public bool Merge { get; set; }
+
+                [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the count.")]
+                public IEnumerable<string>? ExcludedProteins { get; set; }
+
+                public bool Verbose { get; set; }
+                public bool NoError { get; set; }
+                public IEnumerable<char>? Delimiters { get; set; }
+                public char? RowDelimiter { get; set; }
+                public int SampleSize { get; set; }
+                public int SafeRowCount { get; set; }
+                public IEnumerable<string>? Files { get; set; }
+            }
+
+            [Verb("intersect", HelpText = "Intersects all files into a single list of unique proteins.")]
+            public class Intersect : GlobalOptions
+            {
+                [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the intersection.")]
+                public IEnumerable<string>? ExcludedProteins { get; set; }
+
+                public bool Verbose { get; set; }
+                public bool NoError { get; set; }
+                public IEnumerable<char>? Delimiters { get; set; }
+                public char? RowDelimiter { get; set; }
+                public int SampleSize { get; set; }
+                public int SafeRowCount { get; set; }
+                public IEnumerable<string>? Files { get; set; }
+            }
         }
 
         public static int Main(string[] args)
@@ -37,21 +73,27 @@ namespace ProteinCompare
                 p.EnableDashDash = true;
                 p.AutoHelp = true;
                 p.HelpWriter = Console.Error;
-            }).ParseArguments<Options>(args)
+            }).ParseArguments<GlobalOptions.Count, GlobalOptions.Intersect>(args)
             .MapResult(
-              options => new ProteinCompare(options).Start(),
+              (GlobalOptions.Count options) => new ProteinCompare(options).StartCount(options),
+              (GlobalOptions.Intersect options) => new ProteinCompare(options).StartIntersect(options),
               _ => 1);
         }
 
-        private Options options;
+        private GlobalOptions options;
+        private CsvTable[] tables;
+        private int proteinCount;
 
-        public ProteinCompare(Options options)
+        public ProteinCompare(GlobalOptions options)
         {
             this.options = options;
+            tables = Array.Empty<CsvTable>();
+            proteinCount = 0;
+
             LogManager.Setup().LoadConfiguration(builder =>
             {
                 // StdOut for <= Warn
-                builder.ForLogger().FilterLevels(options.Verbose ? LogLevel.Trace : LogLevel.Info, LogLevel.Warn).WriteTo(new ColoredConsoleTarget()
+                builder.ForLogger().FilterLevels(options.Verbose ? LogLevel.Trace : LogLevel.Info, options.NoError ? LogLevel.Info : LogLevel.Warn).WriteTo(new ColoredConsoleTarget()
                 {
                     StdErr = false,
                     AutoFlush = true,
@@ -62,7 +104,7 @@ namespace ProteinCompare
                 });
 
                 // StdErr for >= Error
-                builder.ForLogger().FilterMinLevel(LogLevel.Error).WriteTo(new ColoredConsoleTarget()
+                builder.ForLogger().FilterMinLevel(options.NoError ? LogLevel.Fatal : LogLevel.Error).WriteTo(new ColoredConsoleTarget()
                 {
                     StdErr = true,
                     AutoFlush = true,
@@ -74,7 +116,7 @@ namespace ProteinCompare
             });
         }
     
-        public int Start()
+        public int Load()
         {
             if (options.Files == null)
             {
@@ -108,13 +150,14 @@ namespace ProteinCompare
                 }
             }
 
+            this.tables = tables.ToArray();
             logger.Info("{file_count} file(s) loaded.", tables.Count);
 
             int proteinCount = 0;
 
             for (int i = 0; i < tables.Count; i++)
             {
-                logger.Trace("Converting proteins {progress}/{total}", i + 1, tables.Count);
+                logger.Info("Converting proteins: table {progress}/{total}", i + 1, tables.Count);
                 foreach (var row in tables[i].Rows)
                 {
                     if (row.Values.Length > 0)
@@ -128,9 +171,24 @@ namespace ProteinCompare
                 }
             }
 
+            this.proteinCount = proteinCount;
             logger.Info("Attached {protein_cont} protein(s).", proteinCount);
 
-            
+            return 0;
+        }
+
+        public int StartCount(GlobalOptions.Count options)
+        {
+            int exit = Load();
+            if (exit != 0) return exit;
+
+            return 0;
+        }
+
+        public int StartIntersect(GlobalOptions.Intersect options)
+        {
+            int exit = Load();
+            if (exit != 0) return exit;
 
             return 0;
         }
