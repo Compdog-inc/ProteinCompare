@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NLog;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +11,8 @@ namespace ProteinCompare
 {
     public static class CsvTransformer
     {
+        private static Logger logger = LogManager.GetCurrentClassLogger();
+
         public static string[] TransformText(string text, char rowDelimiter)
         {
             return text.Split(rowDelimiter);
@@ -39,7 +42,7 @@ namespace ProteinCompare
                     {
                         if (columns[i][j] == dialect.Escape && j < columns[i].Length - 1)
                         {
-                            // detect escaped char and skip escape code
+                            // detect escaped char and skip escape sequence
                             switch (columns[i][j + 1])
                             {
                                 case 't':
@@ -84,6 +87,9 @@ namespace ProteinCompare
                                         // quote escaped
                                         sb.Append(dialect.Quote);
                                         j++;
+                                    } else
+                                    {
+                                        logger.Trace("Unknown escape sequence {char}", columns[i][j + 1]);
                                     }
                                     break;
                             }
