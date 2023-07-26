@@ -91,7 +91,7 @@ namespace ProteinCompare
             }
 
             logger.Trace("Filtering protein files");
-            files = files.Where(p=>FileFilter.FilterPaths(p, options.RowDelimiter??'\n')).ToArray();
+            files = files.Where(p => FileFilter.FilterPaths(p, options.RowDelimiter ?? '\n')).ToArray();
             logger.Trace("Found {valid_files} valid file(s)", files.Length);
 
             List<CsvTable> tables = new(files.Length);
@@ -109,6 +109,23 @@ namespace ProteinCompare
             }
 
             logger.Info("{file_count} file(s) loaded.", tables.Count);
+
+            for (int i = 0; i < tables.Count; i++)
+            {
+                logger.Trace("Converting proteins {progress}/{total}", i + 1, tables.Count);
+                foreach (var row in tables[i].Rows)
+                {
+                    if (row.Values.Length > 0)
+                    {
+                        if (ProteinDetector.GetProtein(row.Values[0], out string protein))
+                        {
+                            row.AttachedData = protein;
+                        }
+                    }
+                }
+            }
+
+            logger.Info("Attached detected protein data.");
 
             return 0;
         }

@@ -24,6 +24,7 @@ namespace ProteinCompare
     {
         public int Index { get; set; }
         public CsvValue[] Values { get; set; }
+        public object? AttachedData { get; set; }
 
         public CsvRow(int index, CsvValue[] values)
         {
