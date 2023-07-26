@@ -31,18 +31,26 @@ namespace ProteinCompare
             logger.Trace("Trying to parse delimiter {delimiter}", delimiter);
             columnCount = -1;
 
-            foreach (var row in sample)
+            for(int i=0;i<sample.Length; i++)
             {
-                int tmp = row.Split(delimiter).Length;
-                if (columnCount == -1)
+                int tmp = sample[i].Split(delimiter).Length;
+                if (i == 0)
                 {
                     logger.Trace("First row has {column_count} column(s)", tmp);
                     columnCount = tmp;
                 }
                 else if (tmp != columnCount) // column count not consistent
                 {
-                    logger.Trace("TryParseDelimiter failed: {current_count} != {target_count}", tmp, columnCount);
-                    return false;
+                    logger.Error("TryParseDelimiter failed: {current_count} != {target_count} @ {row}", tmp, columnCount, sample[i]);
+                    if (i == 1)
+                    {
+                        logger.Warn("TryParseDelimiter failed on second row. Possible header, resetting columns");
+                        columnCount = tmp;
+                    }
+                    else
+                    {
+                        return false;
+                    }
                 }
             }
 
