@@ -61,26 +61,42 @@ namespace ProteinCompare
         {
             logger.Trace("Trying to parse quote {quote}", quote);
             if (quote == null) return true; // always a possibility
-            foreach (var row in sample)
+            for(int i=0;i<sample.Length;i++)
             {
-                var columns = row.Split(delimiter);
+                var columns = sample[i].Split(delimiter);
+                bool bad = false;
                 foreach (var column in columns)
                 {
                     if (column.Length < 2)
                     {
                         logger.Trace("TryParseQuote failed: invalid column {column}", column);
-                        return false;
+                        bad = true;
+                        break;
                     }
 
                     if (column[0] != quote)
                     {
                         logger.Trace("TryParseQuote failed: invalid first char {char}", column[0]);
-                        return false;
+                        bad = true;
+                        break;
                     }
 
                     if (column[^1] != quote)
                     {
                         logger.Trace("TryParseQuote failed: invalid last char {char}", column[^1]);
+                        bad = true;
+                        break;
+                    }
+                }
+
+                if (bad)
+                {
+                    if (i == 0)
+                    {
+                        logger.Warn("TryParseQuote failed on first row. Possible header, ignoring");
+                    }
+                    else
+                    {
                         return false;
                     }
                 }

@@ -13,6 +13,14 @@ namespace ProteinCompare
             var firstRow = CsvTransformer.TransformRow(sample[0], dialect);
             var columnTypes = CsvParser.TryDetectColumnTypes(sample, dialect);
 
+            if(firstRow.Length > columnTypes.Length)
+            {
+                firstRow = firstRow.SkipLast(firstRow.Length - columnTypes.Length).ToArray();
+            } else if(firstRow.Length < columnTypes.Length)
+            {
+                firstRow = firstRow.Concat(Enumerable.Repeat("", columnTypes.Length - firstRow.Length)).ToArray();
+            }
+
             // see if first row has a different type than other rows
             bool possiblyHeader = true;
             for (int i = 0; i < firstRow.Length; i++)

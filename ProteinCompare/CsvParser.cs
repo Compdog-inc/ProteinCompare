@@ -100,15 +100,23 @@ namespace ProteinCompare
         {
             List<CsvType>[]? possibleColumnTypes = null;
 
-            foreach (var row in sample)
+            for(int r=0;r<sample.Length; r++)
             {
-                var columns = CsvTransformer.TransformRow(row, dialect);
+                var columns = CsvTransformer.TransformRow(sample[r], dialect);
                 if (possibleColumnTypes == null)
                     possibleColumnTypes = new List<CsvType>[columns.Length];
                 else if (columns.Length != possibleColumnTypes.Length)
                 {
                     logger.Error("TryDetectColumnTypes error: column mismatch {current_length} != {target_length}", columns.Length, possibleColumnTypes.Length);
-                    continue;
+                    if (r == 1)
+                    {
+                        logger.Warn("TryDetectColumnTypes failed on second row. Possible header, resetting columns");
+                        possibleColumnTypes = new List<CsvType>[columns.Length];
+                    }
+                    else
+                    {
+                        continue;
+                    }
                 }
 
                 for (int i = 0; i < possibleColumnTypes.Length; i++)
