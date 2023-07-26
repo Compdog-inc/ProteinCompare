@@ -11,7 +11,7 @@ namespace ProteinCompare
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        public static CsvTable ReadText(string text, char rowDelimiter, int sampleSize, char[] columnDelimiters)
+        public static CsvTable ReadText(string text, char rowDelimiter, int sampleSize, params char[] columnDelimiters)
         {
             var raw_rows = CsvTransformer.TransformText(text, rowDelimiter);
             var sample = raw_rows[..Math.Min(raw_rows.Length - 1, sampleSize - 1)];
@@ -35,6 +35,16 @@ namespace ProteinCompare
             }
 
             return new CsvTable(columns, rows);
+        }
+
+        public static CsvTable ReadFile(string path, char rowDelimiter, int sampleSize, params char[] columnDelimiters)
+        {
+            using FileStream fs = File.OpenRead(path);
+            using StreamReader reader = new(fs);
+            string text = reader.ReadToEnd();
+            reader.Close();
+            fs.Close();
+            return ReadText(text, rowDelimiter, sampleSize, columnDelimiters);
         }
     }
 }
