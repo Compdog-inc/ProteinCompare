@@ -14,10 +14,19 @@ namespace ProteinCompare
             [Option('v', "verbose", Required = false, HelpText = "Enable verbose messages.", Default = false)]
             public bool Verbose { get; set; }
 
-            [Option('d', "delimiters", Required = false, MetaValue = "<char>", HelpText = "Add custom CSV delimiters.")]
+            [Option('d', "delimiters", Required = false, MetaValue = "<char>", HelpText = "Add custom CSV column delimiters used for detection.")]
             public IEnumerable<char>? Delimiters { get; set; }
 
-            [Value(0, MetaName = "[...files]", MetaValue = "<string>", HelpText = "List of paths to protein files (separated by spaces and supports wildcards)")]
+            [Option('r', "rowdelim", Required = false, MetaValue = "<char>", HelpText = "(Default: \\n) Custom row delimiter for parsing.")]
+            public char? RowDelimiter { get; set; }
+
+            [Option('s', "sample", Required = false, Default = 256, MetaValue = "<int:(row count)>", HelpText = "Set CSV table sample size in rows for detection.")]
+            public int SampleSize { get; set; }
+
+            [Option('h', "safe", Required = false, Default = 2, MetaValue = "<int:(row count)>", HelpText = "Set CSV table safe row count (allows detection errors).\nSet to the minimum header/abnormal row count.")]
+            public int SafeRowCount { get; set; }
+
+            [Value(0, MetaName = "[...files]", MetaValue = "<string:(path)>", HelpText = "List of paths to protein files (separated by spaces and supports wildcards)")]
             public IEnumerable<string>? Files { get; set; }
         }
 
@@ -82,7 +91,7 @@ namespace ProteinCompare
             }
 
             logger.Trace("Filtering protein files");
-            files = files.Where(FileFilter.FilterPaths).ToArray();
+            files = files.Where(p=>FileFilter.FilterPaths(p, options.RowDelimiter??'\n')).ToArray();
             logger.Trace("Found {valid_files} valid file(s)", files.Length);
 
             List<CsvTable> tables = new(files.Length);
@@ -90,7 +99,7 @@ namespace ProteinCompare
             {
                 try
                 {
-                    tables.Add(CsvReader.ReadFile(file, '\n', 256, 2));
+                    tables.Add(CsvReader.ReadFile(file, options.RowDelimiter ?? '\n', options.SampleSize, options.SafeRowCount, options.Delimiters?.ToArray() ?? Array.Empty<char>()));
                     logger.Trace("Loaded table {path}", file);
                 }
                 catch (Exception ex)

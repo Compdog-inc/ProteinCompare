@@ -8,7 +8,7 @@ namespace ProteinCompare
 {
     public static class FileFilter
     {
-        public static bool FilterPaths(string path)
+        public static bool FilterPaths(string path, char rowDelimiter)
         {
             if (!File.Exists(path)) return false;
             using FileStream fs = File.OpenRead(path);
@@ -19,7 +19,7 @@ namespace ProteinCompare
                 int n = sr.Read();
                 if (n >= 0)
                 {
-                    if ((char)n == '\n') // row delimiter
+                    if ((char)n == rowDelimiter)
                         return true;
                 }
                 c--;
