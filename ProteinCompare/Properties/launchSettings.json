@@ -12,6 +12,10 @@
       "commandName": "Project",
       "commandLineArgs": "intersect -c -e -o inter.json -l json -- test/*.csv test/*.tsv"
     },
+    "Meta": {
+      "commandName": "Project",
+      "commandLineArgs": "meta --preprocess intersect count -c -e -- test/*.csv test/*.tsv"
+    },
     "Help": {
       "commandName": "Project",
       "commandLineArgs": "help count"

@@ -3,6 +3,8 @@ using NLog;
 using NLog.Layouts;
 using NLog.Targets;
 using ShellProgressBar;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace ProteinCompare
@@ -115,6 +117,39 @@ namespace ProteinCompare
                 public string? OutputFile { get; set; }
                 public OutputFormat OutFormat { get; set; }
             }
+
+            [Verb("meta", HelpText = "Attaches unique metadata to proteins.")]
+            public class Meta : GlobalOptions
+            {
+                [Option('m', "merge", Required = false, Default = false, HelpText = "Set to output a single list of all proteins in all files.\nIf not set, makes a list for every file and doesn't use metadata from other files.")]
+                public bool Merge { get; set; }
+
+                [Option('k', "preprocess", Required = false, HelpText = "Set to preprocess input.", MetaValue = "<None|Count|Intersect>", Default = Preprocessors.None)]
+                public IEnumerable<Preprocessors>? Preprocessor { get; set; }
+
+                [Option('c', "ignore-case", Required = false, Default = false, HelpText = "Set to ignore case when comparing proteins.")]
+                public bool IgnoreCase { get; set; }
+
+                [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the list.")]
+                public IEnumerable<string>? ExcludedProteins { get; set; }
+
+                public bool Verbose { get; set; }
+                public bool NoError { get; set; }
+                public IEnumerable<char>? Delimiters { get; set; }
+                public char? RowDelimiter { get; set; }
+                public int SampleSize { get; set; }
+                public int SafeRowCount { get; set; }
+                public IEnumerable<string>? Files { get; set; }
+                public string? OutputFile { get; set; }
+                public OutputFormat OutFormat { get; set; }
+
+                public enum Preprocessors
+                {
+                    None,
+                    Count,
+                    Intersect
+                }
+            }
         }
 
         public static int Main(string[] args)
@@ -126,10 +161,11 @@ namespace ProteinCompare
                 p.EnableDashDash = true;
                 p.AutoHelp = true;
                 p.HelpWriter = Console.Error;
-            }).ParseArguments<GlobalOptions.Count, GlobalOptions.Intersect>(args)
+            }).ParseArguments<GlobalOptions.Count, GlobalOptions.Intersect, GlobalOptions.Meta>(args)
             .MapResult(
               (GlobalOptions.Count options) => new ProteinCompare(options).StartCount(options),
               (GlobalOptions.Intersect options) => new ProteinCompare(options).StartIntersect(options),
+              (GlobalOptions.Meta options) => new ProteinCompare(options).StartMeta(options),
               _ => 1);
         }
 
@@ -270,6 +306,7 @@ namespace ProteinCompare
             {
                 logger.Info("Preprocessing with Intersect");
                 var intersected = ProteinIntersect.Run(tables, options.ExcludedProteins, options.IgnoreCase);
+                logger.Info("Intersection completed with {protein_count} protein(s).", intersected.Length);
                 if (options.Merge)
                 {
                     lists = ProteinCounter.RunMergedList(tables, options.ExcludedProteins, options.IgnoreCase, intersected);
@@ -308,10 +345,27 @@ namespace ProteinCompare
 
             var list = ProteinIntersect.Run(tables, options.ExcludedProteins, options.IgnoreCase);
 
+            logger.Info("Intersection completed with {protein_count} protein(s).", list.Length);
+
             if (options.OutputFile == null)
                 OutputFormatter.PrintProteinList(list);
             else
                 OutputFormatter.WriteProteinList(list, options.OutputFile, options.OutFormat);
+
+            return 0;
+        }
+
+        public int StartMeta(GlobalOptions.Meta options)
+        {
+            int exit = Load();
+            if (exit != 0) return exit;
+
+            logger.Fatal("Meta not implemented yet");
+            return 1;
+
+            /*Dictionary<string, uint>[] lists;
+
+            logger.Info("Meta completed with {list_count} list(s).", lists.Length);*/
 
             return 0;
         }
