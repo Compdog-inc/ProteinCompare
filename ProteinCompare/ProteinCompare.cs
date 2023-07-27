@@ -2,6 +2,7 @@
 using NLog;
 using NLog.Layouts;
 using NLog.Targets;
+using ShellProgressBar;
 using System.Diagnostics.CodeAnalysis;
 
 namespace ProteinCompare
@@ -42,7 +43,7 @@ namespace ProteinCompare
             [Option('e', "no-error", Required = false, HelpText = "Disable WARN and ERROR messages.", Default = false)]
             public bool NoError { get; set; }
 
-            [Option('d', "delimiters", Required = false, MetaValue = "<char>", HelpText = "Add custom CSV column delimiters used for detection.")]
+            [Option('d', "delimiters", Required = false, MetaValue = "<char_1> <char_2> ...", HelpText = "Add custom CSV column delimiters used for detection.")]
             public IEnumerable<char>? Delimiters { get; set; }
 
             [Option('r', "row-delimiter", Required = false, MetaValue = "<char>", HelpText = "(Default: \\n) Custom row delimiter for parsing.")]
@@ -53,6 +54,12 @@ namespace ProteinCompare
 
             [Option('h', "safe", Required = false, Default = 2, MetaValue = "<int:(row count)>", HelpText = "Set CSV table safe row count (allows detection errors).\nSet to the minimum header/abnormal row count.")]
             public int SafeRowCount { get; set; }
+
+            [Option('o', "output", Required = false, MetaValue = "<string:(path)>", HelpText = "Path of output file to write. If not defined, output to stdout.")]
+            public string? OutputFile { get; set; }
+
+            [Option('l', "format", Required = false, MetaValue = "<Readable|TextList|Json|Csv|Tsv>", Default = OutputFormat.Readable, HelpText = "Set output file format. Ignored if output is not set.")]
+            public OutputFormat OutFormat { get; set; }
 
             [Value(0, MetaName = "[...files]", MetaValue = "<string:(path)>", HelpText = "List of paths to protein files (separated by spaces and supports wildcards)")]
             public IEnumerable<string>? Files { get; set; }
@@ -66,10 +73,10 @@ namespace ProteinCompare
                 [Option('c', "ignore-case", Required = false, Default = false, HelpText = "Set to ignore case when comparing proteins.")]
                 public bool IgnoreCase { get; set; }
 
-                [Option('k', "preprocess", Required = false, HelpText = "Set to preprocess input." , MetaValue = "<None|Intersect>", Default = Preprocessors.None)]
+                [Option('k', "preprocess", Required = false, HelpText = "Set to preprocess input.", MetaValue = "<None|Intersect>", Default = Preprocessors.None)]
                 public Preprocessors Preprocessor { get; set; }
 
-                [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the count.")]
+                [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the count.", MetaValue = "<string:(protein)>")]
                 public IEnumerable<string>? ExcludedProteins { get; set; }
 
                 public bool Verbose { get; set; }
@@ -79,6 +86,8 @@ namespace ProteinCompare
                 public int SampleSize { get; set; }
                 public int SafeRowCount { get; set; }
                 public IEnumerable<string>? Files { get; set; }
+                public string? OutputFile { get; set; }
+                public OutputFormat OutFormat { get; set; }
 
                 public enum Preprocessors
                 {
@@ -103,6 +112,8 @@ namespace ProteinCompare
                 public int SampleSize { get; set; }
                 public int SafeRowCount { get; set; }
                 public IEnumerable<string>? Files { get; set; }
+                public string? OutputFile { get; set; }
+                public OutputFormat OutFormat { get; set; }
             }
         }
 
@@ -110,6 +121,8 @@ namespace ProteinCompare
         {
             return new Parser(p =>
             {
+                p.CaseSensitive = false;
+                p.CaseInsensitiveEnumValues = true;
                 p.EnableDashDash = true;
                 p.AutoHelp = true;
                 p.HelpWriter = Console.Error;
@@ -155,7 +168,7 @@ namespace ProteinCompare
                 });
             });
         }
-    
+
         public int Load()
         {
             if (options.Files == null)
@@ -177,27 +190,53 @@ namespace ProteinCompare
             logger.Trace("Found {valid_files} valid file(s)", files.Length);
 
             List<CsvTable> tables = new(files.Length);
+
+            ProgressBar? pbar = null;
+            if (options.NoError && !options.Verbose)
+            {
+                pbar = new ProgressBar(files.Length, "Reading input files", new ProgressBarOptions()
+                {
+                    ProgressBarOnBottom = true
+                });
+            }
+
             foreach (var file in files)
             {
                 try
                 {
                     tables.Add(CsvReader.ReadFile(file, options.RowDelimiter ?? '\n', options.SampleSize, options.SafeRowCount, options.Delimiters?.ToArray() ?? Array.Empty<char>()));
-                    logger.Trace("Loaded table {path}", file);
+                    if(pbar == null)
+                        logger.Info("Loaded table {path}", file);
+                    pbar?.Tick("Reading input files - " + Path.GetFileName(file));
                 }
                 catch (Exception ex)
                 {
-                    logger.Error(ex, "Error loading file {file}", file);
+                    if(pbar == null)
+                        logger.Error(ex, "Error loading file {file}", file);
+                    pbar?.Tick("Reading input files - " + Path.GetFileName(file));
+                    pbar?.WriteErrorLine("Error loading " + Path.GetFileName(file) + ", " + ex.ToString());
                 }
             }
+
+            pbar?.Dispose();
 
             this.tables = tables.ToArray();
             logger.Info("{file_count} file(s) loaded.", tables.Count);
 
             int proteinCount = 0;
 
+            if (options.NoError && !options.Verbose)
+            {
+                pbar = new ProgressBar(tables.Select(t => t.Rows.Length).Aggregate((a, b) => a + b), "Converting proteins", new ProgressBarOptions()
+                {
+                    ProgressBarOnBottom = true
+                });
+            }
+
             for (int i = 0; i < tables.Count; i++)
             {
-                logger.Info("Converting proteins: table {progress}/{total}", i + 1, tables.Count);
+                if(pbar == null)
+                    logger.Info("Converting proteins: table {progress}/{total}", i + 1, tables.Count);
                 foreach (var row in tables[i].Rows)
                 {
                     if (row.Values.Length > 0)
@@ -208,8 +247,11 @@ namespace ProteinCompare
                             proteinCount++;
                         }
                     }
+                    pbar?.Tick("Converting proteins: table " + (i + 1) + "/" + tables.Count);
                 }
             }
+
+            pbar?.Dispose();
 
             this.proteinCount = proteinCount;
             logger.Info("Attached {protein_cont} protein(s).", proteinCount);
@@ -234,8 +276,7 @@ namespace ProteinCompare
                 }
                 else
                 {
-                    logger.Fatal("Nothing to intersect when tables_per_list is 1. Make sure to enable merging when preprocessing with intersect.");
-                    return 1;
+                    lists = ProteinCounter.RunList(tables, options.ExcludedProteins, options.IgnoreCase, intersected);
                 }
             }
             else
@@ -251,7 +292,11 @@ namespace ProteinCompare
             }
 
             logger.Info("Count completed with {list_count} list(s).", lists.Length);
-            OutputFormatter.PrintProteinCounts(lists);
+
+            if (options.OutputFile == null)
+                OutputFormatter.PrintProteinCounts(lists);
+            else
+                OutputFormatter.WriteProteinCounts(lists, options.OutputFile, options.OutFormat);
 
             return 0;
         }
@@ -263,7 +308,10 @@ namespace ProteinCompare
 
             var list = ProteinIntersect.Run(tables, options.ExcludedProteins, options.IgnoreCase);
 
-            OutputFormatter.PrintProteinList(list);
+            if (options.OutputFile == null)
+                OutputFormatter.PrintProteinList(list);
+            else
+                OutputFormatter.WriteProteinList(list, options.OutputFile, options.OutFormat);
 
             return 0;
         }

@@ -1,4 +1,5 @@
 ﻿using NLog;
+using ShellProgressBar;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -16,21 +17,28 @@ namespace ProteinCompare
         {
             Dictionary<string, uint>[] lists = new Dictionary<string, uint>[tables.Length];
 
-            for (int i = 0; i < tables.Length; i++)
+            using (var pbar = new ProgressBar(tables.Select(t => t.Rows.Length).Aggregate((a, b) => a + b), "Counting proteins", new ProgressBarOptions()
             {
-                logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
-                var list = new Dictionary<string, uint>();
-                foreach (var row in tables[i].Rows)
+                ProgressBarOnBottom = true
+            }))
+            {
+                for (int i = 0; i < tables.Length; i++)
                 {
-                    if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false))
+                    logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
+                    var list = new Dictionary<string, uint>();
+                    foreach (var row in tables[i].Rows)
                     {
-                        if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
-                            list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
-                        else
-                            list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false))
+                        {
+                            if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
+                                list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
+                            else
+                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        }
+                        pbar.Tick("Counting proteins: table " + (i + 1) + "/" + tables.Length);
                     }
+                    lists[i] = list;
                 }
-                lists[i] = list;
             }
 
             return lists;
@@ -40,21 +48,28 @@ namespace ProteinCompare
         {
             Dictionary<string, uint>[] lists = new Dictionary<string, uint>[tables.Length];
 
-            for (int i = 0; i < tables.Length; i++)
+            using (var pbar = new ProgressBar(tables.Select(t => t.Rows.Length).Aggregate((a, b) => a + b), "Counting proteins", new ProgressBarOptions()
             {
-                logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
-                var list = new Dictionary<string, uint>();
-                foreach (var row in tables[i].Rows)
+                ProgressBarOnBottom = true
+            }))
+            {
+                for (int i = 0; i < tables.Length; i++)
                 {
-                    if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) && proteins.Contains(protein, new StringComparer(ignoreCase)))
+                    logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
+                    var list = new Dictionary<string, uint>();
+                    foreach (var row in tables[i].Rows)
                     {
-                        if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
-                            list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
-                        else
-                            list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) && proteins.Contains(protein, new StringComparer(ignoreCase)))
+                        {
+                            if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
+                                list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
+                            else
+                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        }
+                        pbar.Tick("Counting proteins: table " + (i + 1) + "/" + tables.Length);
                     }
+                    lists[i] = list;
                 }
-                lists[i] = list;
             }
 
             return lists;
@@ -64,17 +79,24 @@ namespace ProteinCompare
         {
             Dictionary<string, uint> list = new();
 
-            for (int i = 0; i < tables.Length; i++)
+            using (var pbar = new ProgressBar(tables.Select(t => t.Rows.Length).Aggregate((a, b) => a + b), "Counting proteins", new ProgressBarOptions()
             {
-                logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
-                foreach (var row in tables[i].Rows)
+                ProgressBarOnBottom = true
+            }))
+            {
+                for (int i = 0; i < tables.Length; i++)
                 {
-                    if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false))
+                    logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
+                    foreach (var row in tables[i].Rows)
                     {
-                        if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
-                            list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
-                        else
-                            list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false))
+                        {
+                            if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
+                                list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
+                            else
+                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        }
+                        pbar.Tick("Counting proteins: table " + (i + 1) + "/" + tables.Length);
                     }
                 }
             }
@@ -86,17 +108,24 @@ namespace ProteinCompare
         {
             Dictionary<string, uint> list = new();
 
-            for (int i = 0; i < tables.Length; i++)
+            using (var pbar = new ProgressBar(tables.Select(t => t.Rows.Length).Aggregate((a, b) => a + b), "Counting proteins", new ProgressBarOptions()
             {
-                logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
-                foreach (var row in tables[i].Rows)
+                ProgressBarOnBottom = true
+            }))
+            {
+                for (int i = 0; i < tables.Length; i++)
                 {
-                    if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) && proteins.Contains(protein, new StringComparer(ignoreCase)))
+                    logger.Trace("Counting table {current}/{total}", (i + 1), tables.Length);
+                    foreach (var row in tables[i].Rows)
                     {
-                        if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
-                            list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
-                        else
-                            list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) && proteins.Contains(protein, new StringComparer(ignoreCase)))
+                        {
+                            if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
+                                list[ignoreCase ? protein.ToUpperInvariant() : protein]++;
+                            else
+                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, 1);
+                        }
+                        pbar.Tick("Counting proteins: table " + (i + 1) + "/" + tables.Length);
                     }
                 }
             }

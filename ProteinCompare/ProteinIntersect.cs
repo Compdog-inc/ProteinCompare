@@ -1,4 +1,5 @@
 ﻿using NLog;
+using ShellProgressBar;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,26 +62,41 @@ namespace ProteinCompare
         public static string[] Run(CsvTable[] tables, IEnumerable<string>? excluded, bool ignoreCase)
         {
             List<string>[] proteinLists = new List<string>[tables.Length];
-            for(int i = 0; i < tables.Length; i++)
-            {
-                proteinLists[i] = new List<string>();
 
-                logger.Trace("Generating protein list {current}/{total}", i + 1, tables.Length);
-                foreach(var row in tables[i].Rows)
+            using (var pbar = new ProgressBar(tables.Select(t => t.Rows.Length).Aggregate((a, b) => a + b), "Sorting proteins", new ProgressBarOptions()
+            {
+                ProgressBarOnBottom = true
+            }))
+            {
+                for (int i = 0; i < tables.Length; i++)
                 {
-                    if(row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false))
+                    proteinLists[i] = new List<string>();
+
+                    logger.Trace("Generating protein list {current}/{total}", i + 1, tables.Length);
+                    foreach (var row in tables[i].Rows)
                     {
-                        proteinLists[i].Add(protein);
+                        if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false))
+                        {
+                            proteinLists[i].Add(protein);
+                        }
+                        pbar.Tick("Sorting proteins: table " + (i + 1) + "/" + tables.Length);
                     }
+                    logger.Trace("Sorting protein list");
+                    proteinLists[i].Sort(string.Compare);
                 }
-                logger.Trace("Sorting protein list");
-                proteinLists[i].Sort(string.Compare);
             }
 
-            while(proteinLists.Length > 1)
+            using (var pbar2 = new ProgressBar((int)Math.Log2(proteinLists.Length), "Reducing intersections", new ProgressBarOptions()
             {
-                // always divides list by 2
-                proteinLists = _reduceByIntersecting(proteinLists, ignoreCase);
+                ProgressBarOnBottom = true
+            }))
+            {
+                while (proteinLists.Length > 1)
+                {
+                    // always divides list by 2
+                    proteinLists = _reduceByIntersecting(proteinLists, ignoreCase);
+                    pbar2.Tick("Reducing intersections - size: " + proteinLists.Length);
+                }
             }
 
             return proteinLists[0].ToArray();
