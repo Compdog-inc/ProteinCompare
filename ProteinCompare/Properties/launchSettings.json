@@ -6,11 +6,11 @@
     },
     "CountMerge": {
       "commandName": "Project",
-      "commandLineArgs": "count --preprocess intersect -em --ignore-case -o hom.csv -l csv -- test/*.csv test/*.tsv"
+      "commandLineArgs": "count --preprocess intersect -e --ignore-case -o hom.tsv -l tsv -- test/*.csv test/*.tsv"
     },
     "Intersect": {
       "commandName": "Project",
-      "commandLineArgs": "intersect -c -v -- test/*.csv test/*.tsv"
+      "commandLineArgs": "intersect -c -e -o inter.json -l json -- test/*.csv test/*.tsv"
     },
     "Help": {
       "commandName": "Project",

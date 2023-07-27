@@ -106,9 +106,42 @@ namespace ProteinCompare
                     break;
                 case OutputFormat.Csv:
                     {
-                        using FileStream fs = File.Create(output);
-                        using StreamWriter sw = new(fs);
-                        
+                        var csv = new CsvBuilder()
+                            .AddColumn("list_id", CsvType.Number)
+                            .AddColumn("protein", CsvType.String)
+                            .AddColumn("count", CsvType.Number)
+                            .SetHeader(true);
+
+                        for (int i = 0; i < lists.Length; i++)
+                        {
+                            var sorted = from entry in lists[i] orderby entry.Value descending select entry;
+                            foreach (var pair in sorted)
+                            {
+                                csv.AddToRow((long)i).AddToRow(pair.Key).AddToRow((long)pair.Value).PushRow();
+                            }
+                        }
+
+                        CsvWriter.WriteToFile(output, csv.ToTable(), new CsvDialect(',', '"', '"'), '\n');
+                    }
+                    break;
+                case OutputFormat.Tsv:
+                    {
+                        var csv = new CsvBuilder()
+                            .AddColumn("list_id", CsvType.Number)
+                            .AddColumn("protein", CsvType.String)
+                            .AddColumn("count", CsvType.Number)
+                            .SetHeader(true);
+
+                        for (int i = 0; i < lists.Length; i++)
+                        {
+                            var sorted = from entry in lists[i] orderby entry.Value descending select entry;
+                            foreach (var pair in sorted)
+                            {
+                                csv.AddToRow((long)i).AddToRow(pair.Key).AddToRow((long)pair.Value).PushRow();
+                            }
+                        }
+
+                        CsvWriter.WriteToFile(output, csv.ToTable(), new CsvDialect('\t', null, '"'), '\n');
                     }
                     break;
                 default:
@@ -133,15 +166,79 @@ namespace ProteinCompare
 
         public static void WriteProteinList(string[] proteins, string output, OutputFormat format)
         {
-            for (int i = 0; i < proteins.Length; i++)
+            switch (format)
             {
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write(proteins[i]);
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-                if (i < proteins.Length - 1)
-                    Console.Write(",");
+                case OutputFormat.Readable:
+                    {
+                        using FileStream fs = File.Create(output);
+                        using StreamWriter sw = new(fs);
+
+                        for (int i = 0; i < proteins.Length; i++)
+                        {
+                            sw.Write(proteins[i]);
+                            if (i < proteins.Length - 1)
+                                sw.Write(",");
+                        }
+                    }
+                    break;
+                case OutputFormat.TextList:
+                    {
+                        using FileStream fs = File.Create(output);
+                        using StreamWriter sw = new(fs);
+
+                        for (int i = 0; i < proteins.Length; i++)
+                        {
+                            sw.Write(proteins[i]);
+                            if (i < proteins.Length - 1)
+                                sw.Write(",");
+                        }
+                    }
+                    break;
+                case OutputFormat.Json:
+                    {
+                        using FileStream fs = File.Create(output);
+                        using StreamWriter sw = new(fs);
+                        using JsonTextWriter json = new(sw);
+
+                        json.WriteStartArray();
+                        for (int i = 0; i < proteins.Length; i++)
+                        {
+                            json.WriteValue(proteins[i]);
+                        }
+                        json.WriteEndArray();
+                    }
+                    break;
+                case OutputFormat.Csv:
+                    {
+                        var csv = new CsvBuilder()
+                            .AddColumn("protein", CsvType.String)
+                            .SetHeader(true);
+                        for (int i = 0; i < proteins.Length; i++)
+                        {
+                            csv.AddToRow(proteins[i]).PushRow();
+                        }
+
+                        CsvWriter.WriteToFile(output, csv.ToTable(), new CsvDialect(',', '"', '"'), '\n');
+                    }
+                    break;
+                case OutputFormat.Tsv:
+                    {
+                        var csv = new CsvBuilder()
+                            .AddColumn("protein", CsvType.String)
+                            .SetHeader(true);
+                        for (int i = 0; i < proteins.Length; i++)
+                        {
+                            csv.AddToRow(proteins[i]).PushRow();
+                        }
+
+                        CsvWriter.WriteToFile(output, csv.ToTable(), new CsvDialect('\t', null, '"'), '\n');
+                    }
+                    break;
+                default:
+                    logger.Fatal("Unknown output format {format}", format);
+                    return;
             }
-            Console.Out.Flush();
+            logger.Info("Finished writing to {file} with format {format}", Path.GetFileName(output), format);
         }
     }
 }
