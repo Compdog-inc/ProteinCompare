@@ -18,6 +18,29 @@ namespace ProteinCompare
             return text.Split(rowDelimiter);
         }
 
+        public static string FormatEscape(string raw, CsvDialect dialect)
+        {
+            if (dialect.Escape == null) return raw;
+
+            raw = raw
+                .Replace("\t", dialect.Escape + "t")
+                .Replace("\b", dialect.Escape + "b")
+                .Replace("\n", dialect.Escape + "n")
+                .Replace("\r", dialect.Escape + "r")
+                .Replace("\f", dialect.Escape + "f")
+                .Replace("'", dialect.Escape + "'")
+                .Replace("\"", dialect.Escape + "\"")
+                .Replace("\\", dialect.Escape + "\\")
+                ;
+
+            if (dialect.Quote != null)
+            {
+                raw = raw.Replace(dialect.Quote + "", dialect.Escape + "" + dialect.Quote);
+            }
+
+            return raw;
+        }
+
         public static bool TryEscape(string sequence, CsvDialect dialect, out char escapedChar)
         {
             escapedChar = '\0';
@@ -99,12 +122,32 @@ namespace ProteinCompare
                 }
             }
 
-            if(currentColumn.Length > 0)
+            if (currentColumn.Length > 0)
             {
                 columns.Add(currentColumn.ToString());
             }
 
             return columns.ToArray();
+        }
+
+        public static string FormatRow(string[] row, CsvDialect dialect)
+        {
+            StringBuilder sb = new();
+            for (int i = 0; i < row.Length; i++)
+            {
+                if (dialect.Quote != null)
+                    sb.Append(dialect.Quote); // opening quote
+
+                sb.Append(FormatEscape(row[i], dialect));
+
+                if (dialect.Quote != null)
+                    sb.Append(dialect.Quote); // closing quote
+
+                if (i < row.Length - 1)
+                    sb.Append(dialect.Delimiter);
+            }
+
+            return sb.ToString();
         }
     }
 }
