@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using NLog;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +10,8 @@ namespace ProteinCompare
 {
     public class CsvBuilder
     {
+        private static Logger logger = LogManager.GetCurrentClassLogger();
+
         private bool hasHeader = false;
         private List<CsvColumn> columns = new();
         private List<CsvRow> rows = new();
@@ -23,6 +27,14 @@ namespace ProteinCompare
         {
             hasHeader = true;
             columns.Add(new(name, type));
+            return this;
+        }
+
+        public CsvBuilder AddColumns(int count, CsvType type)
+        {
+            hasHeader = true;
+            for (int i = 0; i < count; i++)
+                columns.Add(new(type));
             return this;
         }
 
@@ -88,6 +100,13 @@ namespace ProteinCompare
             return AddToRow(serializedTuple.Item1, serializedTuple.Item2);
         }
 
+        public CsvBuilder AddToRow(CsvValue[] values)
+        {
+            int baseIndex = currentRow.Count;
+            currentRow.AddRange(values.Select(v => v.IsList ? new CsvValue(v.Values, baseIndex + v.ColumnIndex, v.ColumnType) : new CsvValue(v.Value, baseIndex + v.ColumnIndex, v.ColumnType)));
+            return this;
+        }
+
         public CsvBuilder PushRow()
         {
             rows.Add(new CsvRow(rows.Count, currentRow.ToArray()));
@@ -97,6 +116,11 @@ namespace ProteinCompare
 
         public CsvTable ToTable()
         {
+            if(currentRow.Count > 0)
+            {
+                logger.Warn("Building table with an unpushed row. Make sure to call PushRow if this is not the intended behavior.");
+            }
+
             if (hasHeader)
             {
                 // inject header row
