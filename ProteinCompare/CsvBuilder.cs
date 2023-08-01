@@ -77,6 +77,17 @@ namespace ProteinCompare
             return this;
         }
 
+        public CsvBuilder AddToRow(CsvType type, string serializedValue)
+        {
+            currentRow.Add(new CsvValue(serializedValue, currentRow.Count, type));
+            return this;
+        }
+
+        public CsvBuilder AddToRow((CsvType, string) serializedTuple)
+        {
+            return AddToRow(serializedTuple.Item1, serializedTuple.Item2);
+        }
+
         public CsvBuilder PushRow()
         {
             rows.Add(new CsvRow(rows.Count, currentRow.ToArray()));
