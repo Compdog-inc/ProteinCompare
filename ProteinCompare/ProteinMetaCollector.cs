@@ -12,7 +12,7 @@ namespace ProteinCompare
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        public static CsvTable[] ReduceByProtein(CsvTable[] tables, IEnumerable<string>? excluded, bool ignoreCase, string[]? proteins)
+        public static CsvTable[] ReduceByProtein(CsvTable[] tables, IEnumerable<string>? excluded, bool ignoreCase, string[]? proteins, IEnumerable<string>? filter)
         {
             CsvTable[] result = new CsvTable[tables.Length];
 
@@ -27,16 +27,22 @@ namespace ProteinCompare
                     var list = new Dictionary<string, CsvEntry>();
                     foreach (var row in tables[i].Rows)
                     {
-                        if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) && (proteins == null || proteins.Contains(protein, new StringComparer(ignoreCase))))
+                        if (
+                            row.AttachedData is string protein &&
+                            !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) &&
+                            (proteins == null || proteins.Contains(protein, new StringComparer(ignoreCase)))
+                            )
                         {
+                            var filteredRow = new CsvRow(row.Index, filter == null ? row.Values : row.Values.Where((v) => filter.Contains(tables[i].Columns[v.ColumnIndex].Name)).ToArray());
+                            var filteredColumns = filter == null ? tables[i].Columns : tables[i].Columns.Where((v)=>filter.Contains(v.Name)).ToArray();
                             if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
                             {
-                                var merged = list[ignoreCase ? protein.ToUpperInvariant() : protein].Merge(new CsvEntry(row, tables[i].Columns)); // merge current entry with existing
+                                var merged = list[ignoreCase ? protein.ToUpperInvariant() : protein].Merge(new CsvEntry(filteredRow, filteredColumns)); // merge current entry with existing
                                 list[ignoreCase ? protein.ToUpperInvariant() : protein] = merged;
                             }
                             else
                             {
-                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, new CsvEntry(row, tables[i].Columns));
+                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, new CsvEntry(filteredRow, filteredColumns));
                             }
                         }
                         pbar.Tick("Reducing proteins: table " + (i + 1) + "/" + tables.Length);
@@ -70,7 +76,7 @@ namespace ProteinCompare
             return result;
         }
 
-        public static CsvTable[] ReduceByProteinMerged(CsvTable[] tables, IEnumerable<string>? excluded, bool ignoreCase, string[]? proteins)
+        public static CsvTable[] ReduceByProteinMerged(CsvTable[] tables, IEnumerable<string>? excluded, bool ignoreCase, string[]? proteins, IEnumerable<string>? filter)
         {
             var list = new Dictionary<string, CsvEntry>();
 
@@ -84,16 +90,23 @@ namespace ProteinCompare
                     logger.Trace("Reducing table {current}/{total}", (i + 1), tables.Length);
                     foreach (var row in tables[i].Rows)
                     {
-                        if (row.AttachedData is string protein && !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) && (proteins == null || proteins.Contains(protein, new StringComparer(ignoreCase))))
+                        if (
+                            row.AttachedData is string protein &&
+                            !(excluded?.Contains(protein, new StringComparer(ignoreCase)) ?? false) &&
+                            (proteins == null || proteins.Contains(protein, new StringComparer(ignoreCase)))
+                            )
                         {
+                            var filteredRow = new CsvRow(row.Index, filter == null ? row.Values : row.Values.Where((v) => filter.Contains(tables[i].Columns[v.ColumnIndex].Name)).ToArray());
+                            var filteredColumns = filter == null ? tables[i].Columns : tables[i].Columns.Where((v) => filter.Contains(v.Name)).ToArray();
+
                             if (list.ContainsKey(ignoreCase ? protein.ToUpperInvariant() : protein))
                             {
-                                var merged = list[ignoreCase ? protein.ToUpperInvariant() : protein].Merge(new CsvEntry(row, tables[i].Columns)); // merge current entry with existing
+                                var merged = list[ignoreCase ? protein.ToUpperInvariant() : protein].Merge(new CsvEntry(filteredRow, filteredColumns)); // merge current entry with existing
                                 list[ignoreCase ? protein.ToUpperInvariant() : protein] = merged;
                             }
                             else
                             {
-                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, new CsvEntry(row, tables[i].Columns));
+                                list.Add(ignoreCase ? protein.ToUpperInvariant() : protein, new CsvEntry(filteredRow, filteredColumns));
                             }
                         }
                         pbar.Tick("Reducing proteins: table " + (i + 1) + "/" + tables.Length);

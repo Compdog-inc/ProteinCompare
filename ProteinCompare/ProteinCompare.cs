@@ -133,6 +133,9 @@ namespace ProteinCompare
                 [Option('p', "exclude", Required = false, HelpText = "List of proteins to exclude from the list.")]
                 public IEnumerable<string>? ExcludedProteins { get; set; }
 
+                [Option('w', "columns", Required = false, HelpText = "List of column names to filter from the metadata.")]
+                public IEnumerable<string>? FilteredColumns { get; set; }
+
                 public bool Verbose { get; set; }
                 public bool NoError { get; set; }
                 public IEnumerable<char>? Delimiters { get; set; }
@@ -372,10 +375,10 @@ namespace ProteinCompare
             CsvTable[] metatables;
             if (options.Merge)
             {
-                metatables = ProteinMetaCollector.ReduceByProteinMerged(tables, options.ExcludedProteins, options.IgnoreCase, filter);
+                metatables = ProteinMetaCollector.ReduceByProteinMerged(tables, options.ExcludedProteins, options.IgnoreCase, filter, options.FilteredColumns);
             } else
             {
-                metatables = ProteinMetaCollector.ReduceByProtein(tables, options.ExcludedProteins, options.IgnoreCase, filter);
+                metatables = ProteinMetaCollector.ReduceByProtein(tables, options.ExcludedProteins, options.IgnoreCase, filter, options.FilteredColumns);
             }
 
             if (options.Preprocessor?.Contains(GlobalOptions.Meta.Preprocessors.Count) ?? false)
