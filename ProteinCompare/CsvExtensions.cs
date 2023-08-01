@@ -15,7 +15,7 @@ namespace ProteinCompare
         /// </summary>
         /// <param name="obj">If one of the supported types, cast to standard type. Otherwise, type is set to string and value is obj.ToString()</param>
         /// <returns>Serialized object to string with its type</returns>
-        public static (CsvType, string) SerializeObject(this object? obj)
+        public static (CsvType, string) SerializeObject(object? obj)
         {
             if (obj is bool valB)
             {

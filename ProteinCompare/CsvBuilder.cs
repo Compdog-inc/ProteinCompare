@@ -38,6 +38,13 @@ namespace ProteinCompare
             return this;
         }
 
+        public CsvBuilder AddColumns(CsvColumn[] columns)
+        {
+            hasHeader = true;
+            this.columns.AddRange(columns);
+            return this;
+        }
+
         public CsvBuilder SetHeader(bool hasHeader)
         {
             this.hasHeader = hasHeader;
@@ -111,6 +118,12 @@ namespace ProteinCompare
         {
             rows.Add(new CsvRow(rows.Count, currentRow.ToArray()));
             currentRow.Clear();
+            return this;
+        }
+
+        public CsvBuilder AddRow(CsvRow row)
+        {
+            rows.Add(row);
             return this;
         }
 

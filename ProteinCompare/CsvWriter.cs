@@ -10,10 +10,27 @@ namespace ProteinCompare
     {
         public static void WriteToTextWriter(TextWriter writer, CsvTable table, CsvDialect dialect, char rowDelimiter)
         {
-            foreach (var row in table.Rows)
+            for (int j = 0; j < table.Rows.Length; j++)
             {
-                writer.Write(CsvTransformer.FormatRow(row.Values.Select(v => v.Value).ToArray(), dialect));
-                writer.Write(rowDelimiter);
+                writer.Write(CsvTransformer.FormatRow(table.Rows[j].Values.Select(v => v.Value).ToArray(), dialect));
+                if (j < table.Rows.Length - 1)
+                    writer.Write(rowDelimiter);
+            }
+        }
+
+        public static void WriteToTextWriter(TextWriter writer, CsvTable[] tables, CsvDialect dialect, char rowDelimiter)
+        {
+            for (int i = 0; i < tables.Length; i++)
+            {
+                for (int j = 0; j < tables[i].Rows.Length; j++)
+                {
+                    writer.Write(CsvTransformer.FormatRow(tables[i].Rows[j].Values.Select(v => v.Value).ToArray(), dialect));
+                    if (j < tables[i].Rows.Length - 1)
+                        writer.Write(rowDelimiter);
+                }
+
+                if (i < tables.Length - 1)
+                    writer.Write("\n==================================================\n");
             }
         }
 
@@ -24,10 +41,24 @@ namespace ProteinCompare
             WriteToTextWriter(writer, table, dialect, rowDelimiter);
         }
 
+        public static void WriteToFile(string path, CsvTable[] tables, CsvDialect dialect, char rowDelimiter)
+        {
+            using var fs = File.Create(path);
+            using var writer = new StreamWriter(fs);
+            WriteToTextWriter(writer, tables, dialect, rowDelimiter);
+        }
+
         public static string WriteToText(CsvTable table, CsvDialect dialect, char rowDelimiter)
         {
             using var writer = new StringWriter();
             WriteToTextWriter(writer, table, dialect, rowDelimiter);
+            return writer.ToString();
+        }
+
+        public static string WriteToText(CsvTable[] tables, CsvDialect dialect, char rowDelimiter)
+        {
+            using var writer = new StringWriter();
+            WriteToTextWriter(writer, tables, dialect, rowDelimiter);
             return writer.ToString();
         }
     }

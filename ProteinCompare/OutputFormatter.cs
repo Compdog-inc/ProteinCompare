@@ -240,5 +240,266 @@ namespace ProteinCompare
             }
             logger.Info("Finished writing to {file} with format {format}", Path.GetFileName(output), format);
         }
+
+        public static void PrintCsvTables(CsvTable[] tables)
+        {
+            for (int i = 0; i < tables.Length; i++)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("==== Table #" + (i + 1) + " ====");
+
+                if (tables[i].HasHeader)
+                {
+                    // print header
+                    for (int k = 0; k < tables[i].Rows[0].Values.Length; k++)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Magenta;
+                        Console.Write(tables[i].Rows[0].Values[k].ToString());
+
+                        if (k < tables[i].Rows[0].Values.Length - 1)
+                        {
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                            Console.Write("\t");
+                        }
+                    }
+
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine();
+                }
+
+                foreach (var row in tables[i].HasHeader ? tables[i].Rows[1..] : tables[i].Rows)
+                {
+                    for (int k = 0; k < row.Values.Length; k++)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.Write('"');
+
+                        if (row.Values[k].IsList)
+                        {
+                            var list = row.Values[k].ToStringList();
+                            for (int j = 0; j < list.Length; j++)
+                            {
+                                Console.ForegroundColor = ConsoleColor.White;
+                                Console.Write(list[j]);
+                                if (j < list.Length - 1)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                                    Console.Write(',');
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.White;
+                            Console.Write(row.Values[k].ToString());
+                        }
+
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.Write('"');
+
+                        if (k < row.Values.Length - 1)
+                        {
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                            Console.Write("\t");
+                        }
+                    }
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine();
+                }
+            }
+            Console.Out.Flush();
+        }
+
+        public static void WriteCsvTables(CsvTable[] tables, string output, OutputFormat format)
+        {
+            switch (format)
+            {
+                case OutputFormat.Readable:
+                    {
+                        using FileStream fs = File.Create(output);
+                        using StreamWriter sw = new(fs);
+
+                        for (int i = 0; i < tables.Length; i++)
+                        {
+                            sw.WriteLine("==== Table #" + (i + 1) + " ====");
+
+                            if (tables[i].HasHeader)
+                            {
+                                // print header
+                                for (int k = 0; k < tables[i].Rows[0].Values.Length; k++)
+                                {
+                                    sw.Write(tables[i].Rows[0].Values[k].ToString());
+
+                                    if (k < tables[i].Rows[0].Values.Length - 1)
+                                    {
+                                        sw.Write("\t");
+                                    }
+                                }
+
+                                sw.WriteLine();
+                            }
+
+                            foreach (var row in tables[i].HasHeader ? tables[i].Rows[1..] : tables[i].Rows)
+                            {
+                                for (int k = 0; k < row.Values.Length; k++)
+                                {
+                                    sw.Write('"');
+
+                                    if (row.Values[k].IsList)
+                                    {
+                                        var list = row.Values[k].ToStringList();
+                                        for (int j = 0; j < list.Length; j++)
+                                        {
+                                            sw.Write(list[j]);
+                                            if (j < list.Length - 1)
+                                            {
+                                                sw.Write(',');
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        sw.Write(row.Values[k].ToString());
+                                    }
+
+                                    sw.Write('"');
+
+                                    if (k < row.Values.Length - 1)
+                                    {
+                                        sw.Write("\t");
+                                    }
+                                }
+                                sw.WriteLine();
+                            }
+                        }
+                    }
+                    break;
+                case OutputFormat.TextList:
+                    {
+                        using FileStream fs = File.Create(output);
+                        using StreamWriter sw = new(fs);
+
+                        for (int i = 0; i < tables.Length; i++)
+                        {
+                            sw.WriteLine("Table:" + (i + 1));
+
+                            if (tables[i].HasHeader)
+                            {
+                                // print header
+                                for (int k = 0; k < tables[i].Rows[0].Values.Length; k++)
+                                {
+                                    sw.Write(tables[i].Rows[0].Values[k].ToString());
+
+                                    if (k < tables[i].Rows[0].Values.Length - 1)
+                                    {
+                                        sw.Write(",");
+                                    }
+                                }
+
+                                sw.WriteLine();
+                            }
+
+                            foreach (var row in tables[i].HasHeader ? tables[i].Rows[1..] : tables[i].Rows)
+                            {
+                                for (int k = 0; k < row.Values.Length; k++)
+                                {
+                                    sw.Write('"');
+
+                                    if (row.Values[k].IsList)
+                                    {
+                                        var list = row.Values[k].ToStringList();
+                                        for (int j = 0; j < list.Length; j++)
+                                        {
+                                            sw.Write(list[j]);
+                                            if (j < list.Length - 1)
+                                            {
+                                                sw.Write(',');
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        sw.Write(row.Values[k].ToString());
+                                    }
+
+                                    sw.Write('"');
+
+                                    if (k < row.Values.Length - 1)
+                                    {
+                                        sw.Write(",");
+                                    }
+                                }
+                                sw.Write(';');
+                            }
+                            sw.WriteLine();
+                        }
+                    }
+                    break;
+                case OutputFormat.Json:
+                    {
+                        using FileStream fs = File.Create(output);
+                        using StreamWriter sw = new(fs);
+                        using JsonTextWriter json = new(sw);
+
+                        json.WriteStartArray();
+                        for (int i = 0; i < tables.Length; i++)
+                        {
+                            json.WriteStartObject();
+                            if (tables[i].HasHeader)
+                            {
+                                // print header
+                                json.WritePropertyName("header");
+                                json.WriteStartArray();
+                                for (int k = 0; k < tables[i].Rows[0].Values.Length; k++)
+                                {
+                                    json.WriteValue(tables[i].Rows[0].Values[k].ToString());
+                                }
+                                json.WriteEndArray();
+                            }
+
+                            json.WritePropertyName("rows");
+                            json.WriteStartArray();
+                            foreach (var row in tables[i].HasHeader ? tables[i].Rows[1..] : tables[i].Rows)
+                            {
+                                for (int k = 0; k < row.Values.Length; k++)
+                                {
+                                    if (row.Values[k].IsList)
+                                    {
+                                        json.WriteStartArray();
+                                        var list = row.Values[k].ToStringList();
+                                        for (int j = 0; j < list.Length; j++)
+                                        {
+                                            json.WriteValue(list[j]);
+                                        }
+                                        json.WriteEndArray();
+                                    }
+                                    else
+                                    {
+                                        json.WriteValue(row.Values[k].ToString());
+                                    }
+                                }
+                            }
+                            json.WriteEndArray();
+                            json.WriteEndObject();
+                        }
+                        json.WriteEndArray();
+                    }
+                    break;
+                case OutputFormat.Csv:
+                    {
+                        CsvWriter.WriteToFile(output, tables, new CsvDialect(',', '"', '"'), '\n');
+                    }
+                    break;
+                case OutputFormat.Tsv:
+                    {
+                        CsvWriter.WriteToFile(output, tables, new CsvDialect('\t', null, '"'), '\n');
+                    }
+                    break;
+                default:
+                    logger.Fatal("Unknown output format {format}", format);
+                    return;
+            }
+            logger.Info("Finished writing to {file} with format {format}", Path.GetFileName(output), format);
+        }
     }
 }
