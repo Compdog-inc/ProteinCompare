@@ -111,9 +111,39 @@ namespace ProteinCompare
             return csv.ToTable();
         }
 
+        public static CsvTable ToTable<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, string keyName, string valueName) where TKey : notnull
+        {
+            var csv = new CsvBuilder()
+                .AddColumn(keyName, CsvType.String)
+                .AddColumn(valueName, CsvType.String);
+
+            foreach (var pair in dictionary)
+            {
+                csv.AddToRow(SerializeObject(pair.Key));
+                csv.AddToRow(SerializeObject(pair.Value));
+                csv.PushRow();
+            }
+
+            return csv.ToTable();
+        }
+
         public static CsvTable ToTable<T>(this IList<T> list)
         {
             var csv = new CsvBuilder();
+
+            foreach (var item in list)
+            {
+                csv.AddToRow(SerializeObject(item));
+                csv.PushRow();
+            }
+
+            return csv.ToTable();
+        }
+
+        public static CsvTable ToTable<T>(this IList<T> list, string columnName)
+        {
+            var csv = new CsvBuilder()
+                .AddColumn(columnName, CsvType.String);
 
             foreach (var item in list)
             {
