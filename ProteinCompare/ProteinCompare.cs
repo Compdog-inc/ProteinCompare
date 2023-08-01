@@ -375,10 +375,10 @@ namespace ProteinCompare
             CsvTable[] metatables;
             if (options.Merge)
             {
-                metatables = ProteinMetaCollector.ReduceByProteinMerged(tables, options.ExcludedProteins, options.IgnoreCase, filter, options.FilteredColumns);
+                metatables = ProteinMetaCollector.ReduceByProteinMerged(tables, options.ExcludedProteins, options.IgnoreCase, filter, options.FilteredColumns == null ? null : options.FilteredColumns.Any() ? options.FilteredColumns : null);
             } else
             {
-                metatables = ProteinMetaCollector.ReduceByProtein(tables, options.ExcludedProteins, options.IgnoreCase, filter, options.FilteredColumns);
+                metatables = ProteinMetaCollector.ReduceByProtein(tables, options.ExcludedProteins, options.IgnoreCase, filter, options.FilteredColumns == null ? null : options.FilteredColumns.Any() ? options.FilteredColumns : null);
             }
 
             if (options.Preprocessor?.Contains(GlobalOptions.Meta.Preprocessors.Count) ?? false)
