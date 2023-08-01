@@ -23,8 +23,6 @@ namespace ProteinCompare
 
     public class CsvRow
     {
-        private static Logger logger = LogManager.GetCurrentClassLogger();
-
         public int Index { get; set; }
         public CsvValue[] Values { get; set; }
         public object? AttachedData { get; set; }
