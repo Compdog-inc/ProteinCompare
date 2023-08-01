@@ -1,6 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using NLog;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,6 +17,107 @@ namespace ProteinCompare
             Columns = columns;
             Rows = rows;
             HasHeader = hasHeader;
+        }
+
+        public CsvTable Merge(CsvTable other, bool combineColumns, Func<(CsvValue, CsvColumn), (CsvValue, CsvColumn), int, (CsvValue, CsvColumn)> mergeCallback, Func<object?, object?, object?> attachedDataMergeCallback)
+        {
+            List<CsvEntry> list = new(Math.Max(Rows.Length, other.Rows.Length));
+
+            for (int i = 0; i < Math.Max(Rows.Length, other.Rows.Length); i++)
+            {
+                if ((HasHeader ? i + 1 : i) < Rows.Length && (other.HasHeader ? i + 1 : i) < other.Rows.Length) // merge
+                {
+                    var src = new CsvEntry(Rows[HasHeader ? i + 1 : i], Columns);
+                    var otr = new CsvEntry(other.Rows[other.HasHeader ? i + 1 : i], other.Columns);
+
+                    if (combineColumns) // use CsvEntry merge
+                        list.Add(src.Merge(otr, mergeCallback, attachedDataMergeCallback));
+                    else
+                    {
+                        var columns = src.Columns.Concat(otr.Columns).ToList();
+                        var values = src.Row.Values.Concat(otr.Row.Values).ToList();
+                        for (int j = columns.Count - 1; j >= 0; j--)
+                        {
+                            // distinct columns with same-column value merging
+                            int first = columns.IndexOf(columns[j]);
+                            if (first < j) // not first occurrence
+                            {
+                                // remove column and merge row with first occurrence
+                                columns.RemoveAt(j);
+                                var tmp = values[j];
+                                values.RemoveAt(j);
+                                values[first] = mergeCallback((values[first], columns[first]), (tmp, columns[first]), first).Item1;
+                            }
+                        }
+                        for (int j = 0; j < values.Count; j++)
+                        {
+                            // update to global column index
+                            if (values[j].IsList)
+                                values[j] = new CsvValue(values[j].Values, j, values[j].ColumnType);
+                            else
+                                values[j] = new CsvValue(values[j].Value, j, values[j].ColumnType);
+                        }
+                        list.Add(new CsvEntry(new CsvRow(i, values.ToArray()), columns.ToArray()));
+                    }
+                }
+                else if ((HasHeader ? i + 1 : i) < Rows.Length) // copy source
+                {
+                    var src = new CsvEntry(Rows[HasHeader ? i + 1 : i], Columns);
+                    list.Add(src);
+                }
+                else if ((other.HasHeader ? i + 1 : i) < other.Rows.Length) // copy other
+                {
+                    var otr = new CsvEntry(other.Rows[other.HasHeader ? i + 1 : i], other.Columns);
+                    list.Add(otr);
+                }
+            }
+
+            var header = new List<CsvColumn>();
+            foreach (var entry in list)
+            {
+                foreach (var col in entry.Columns)
+                {
+                    if (!header.Contains(col))
+                    {
+                        header.Add(col);
+                    }
+                }
+            }
+
+            var csv = new CsvBuilder()
+                .AddColumns(header.ToArray());
+            foreach (var entry in list)
+            {
+                csv.AddToRow(entry.Row.Values);
+                csv.PushRow();
+            }
+
+            return csv.ToTable();
+        }
+
+        public CsvTable Merge(CsvTable other, bool combineColumns)
+        {
+            return Merge(other, combineColumns,
+                (a, b, i) =>
+                {
+                    if (!a.Item1.IsList && !b.Item1.IsList && a.Item1.Value.Equals(b.Item1.Value)) // no point in merging equal values
+                    {
+                        return a;
+                    }
+
+                    if (a.Item2.Type == b.Item2.Type && (a.Item2.Name?.Equals(b.Item2.Name) ?? false))
+                    {
+                        return (new CsvValue(a.Item1.Values.Concat(b.Item1.Values).Distinct().ToArray(), i, a.Item1.ColumnType), a.Item2);
+                    }
+                    else
+                    {
+                        return (new CsvValue(a.Item1.Values.Concat(b.Item1.Values).Distinct().ToArray(), i, a.Item1.ColumnType),
+                        new CsvColumn(
+                            a.Item2.Name != null && b.Item2.Name != null ? a.Item2.Name + ";" + b.Item2.Name :
+                            a.Item2.Name ?? b.Item2.Name ?? null, a.Item2.Type));
+                    }
+                },
+                (a, b) => a);
         }
     }
 
@@ -68,11 +167,11 @@ namespace ProteinCompare
                 }
                 else if (i < Row.Values.Length) // copy source
                 {
-                    values.Add((new CsvValue(Row.Values[i].Values, index, Row.Values[i].ColumnType), Columns[i]));
+                    values.Add((new CsvValue(Row.Values[i].Values, index, Row.Values[i].ColumnType), i < Columns.Length ? Columns[i] : new CsvColumn(Row.Values[i].ColumnType)));
                 }
                 else if (i < other.Row.Values.Length) // copy other
                 {
-                    values.Add((new CsvValue(other.Row.Values[i].Values, index, other.Row.Values[i].ColumnType), other.Columns[i]));
+                    values.Add((new CsvValue(other.Row.Values[i].Values, index, other.Row.Values[i].ColumnType), i < other.Columns.Length ? other.Columns[i] : new CsvColumn(other.Row.Values[i].ColumnType)));
                 }
                 index++;
             }
@@ -95,11 +194,11 @@ namespace ProteinCompare
 
                     if (a.Item2.Type == b.Item2.Type && (a.Item2.Name?.Equals(b.Item2.Name) ?? false))
                     {
-                        return (new CsvValue(a.Item1.Values.Concat(b.Item1.Values).ToArray(), i, a.Item1.ColumnType), a.Item2);
+                        return (new CsvValue(a.Item1.Values.Concat(b.Item1.Values).Distinct().ToArray(), i, a.Item1.ColumnType), a.Item2);
                     }
                     else
                     {
-                        return (new CsvValue(a.Item1.Values.Concat(b.Item1.Values).ToArray(), i, a.Item1.ColumnType),
+                        return (new CsvValue(a.Item1.Values.Concat(b.Item1.Values).Distinct().ToArray(), i, a.Item1.ColumnType),
                         new CsvColumn(
                             a.Item2.Name != null && b.Item2.Name != null ? a.Item2.Name + ";" + b.Item2.Name :
                             a.Item2.Name ?? b.Item2.Name ?? null, a.Item2.Type));
@@ -174,7 +273,7 @@ namespace ProteinCompare
                         return a;
                     }
 
-                    return new CsvValue(a.Values.Concat(b.Values).ToArray(), i, a.ColumnType);
+                    return new CsvValue(a.Values.Concat(b.Values).Distinct().ToArray(), i, a.ColumnType);
                 },
                 (a, b) => a);
         }

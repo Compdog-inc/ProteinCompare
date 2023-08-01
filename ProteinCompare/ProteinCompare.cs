@@ -360,12 +360,71 @@ namespace ProteinCompare
             int exit = Load();
             if (exit != 0) return exit;
 
-            logger.Fatal("Meta not implemented yet");
-            return 1;
+            string[]? filter = null;
 
-            /*Dictionary<string, uint>[] lists;
+            if (options.Preprocessor?.Contains(GlobalOptions.Meta.Preprocessors.Intersect) ?? false)
+            {
+                logger.Info("Preprocessing with Intersect");
+                filter = ProteinIntersect.Run(tables, options.ExcludedProteins, options.IgnoreCase);
+                logger.Info("Intersection completed with {protein_count} protein(s).", filter.Length);
+            }
 
-            logger.Info("Meta completed with {list_count} list(s).", lists.Length);*/
+            CsvTable[] metatables;
+            if (options.Merge)
+            {
+                metatables = ProteinMetaCollector.ReduceByProteinMerged(tables, options.ExcludedProteins, options.IgnoreCase, filter);
+            } else
+            {
+                metatables = ProteinMetaCollector.ReduceByProtein(tables, options.ExcludedProteins, options.IgnoreCase, filter);
+            }
+
+            if (options.Preprocessor?.Contains(GlobalOptions.Meta.Preprocessors.Count) ?? false)
+            {
+                logger.Info("Preprocessing with Count");
+                Dictionary<string, uint>[] lists;
+                if (filter != null)
+                {
+                    if (options.Merge)
+                    {
+                        lists = ProteinCounter.RunMergedList(tables, options.ExcludedProteins, options.IgnoreCase, filter);
+                    }
+                    else
+                    {
+                        lists = ProteinCounter.RunList(tables, options.ExcludedProteins, options.IgnoreCase, filter);
+                    }
+                }
+                else
+                {
+                    if (options.Merge)
+                    {
+                        lists = ProteinCounter.RunMerged(tables, options.ExcludedProteins, options.IgnoreCase);
+                    }
+                    else
+                    {
+                        lists = ProteinCounter.Run(tables, options.ExcludedProteins, options.IgnoreCase);
+                    }
+                }
+                logger.Info("Count completed with {list_count} list(s).", lists.Length);
+
+                if (metatables.Length != lists.Length)
+                {
+                    logger.Fatal("Count result mismatch list size: {list_size} != {table_count}.", lists.Length, metatables.Length);
+                    return 1;
+                }
+
+                for (int i = 0; i < metatables.Length; i++)
+                {
+                    var tbl = lists[i].ToTable("Protein", "count");
+                    metatables[i] = metatables[i].Merge(tbl, false); // don't combine count column
+                }
+            }
+
+            logger.Info("Meta completed with {table_count} table(s).", metatables.Length);
+
+            if (options.OutputFile == null)
+                OutputFormatter.PrintCsvTables(metatables);
+            else
+                OutputFormatter.WriteCsvTables(metatables, options.OutputFile, options.OutFormat);
 
             return 0;
         }
