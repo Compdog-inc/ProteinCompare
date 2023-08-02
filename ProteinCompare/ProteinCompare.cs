@@ -139,6 +139,9 @@ namespace ProteinCompare
                 [Option('n', "reduce", Required = false, HelpText = "Reduce specified columns by mode.", MetaValue = "<ColumnName| -nothing(default)- >:<Boolean|Number|Double|Time|Date|Timestamp|String|Any| -nothing(Any)- > <None|Unique|Range|Step|StartEnd> <-nothing-|RangeJumpInterval|StepInterval>")]
                 public IEnumerable<string>? ReducerMap { get; set; }
 
+                [Option("reduce-merged", Required = false, Default = false, HelpText = "Set to match any column in a merged column list with the reducer column name.")]
+                public bool ReduceMerged { get; set; }
+
                 public struct ParsedReducer
                 {
                     public string? ColumnName { get; set; }
@@ -563,14 +566,14 @@ namespace ProteinCompare
         const int REDUCER_PRIORITY_COLUMN_ANY = 2;
         const int REDUCER_PRIORITY_COLUMN_TYPE = 3;
 
-        private int GetReducerPriority(GlobalOptions.Meta.ParsedReducer reducer, (CsvValue, CsvColumn) entry)
+        private int GetReducerPriority(GlobalOptions.Meta.ParsedReducer reducer, (CsvValue, CsvColumn) entry, bool reduceMerged)
         {
             if (reducer.IsDefault)
             {
                 return reducer.ColumnType == entry.Item1.ColumnType ? REDUCER_PRIORITY_DEFAULT_TYPE : REDUCER_PRIORITY_DEFAULT_ANY;
             } else if (
                 (reducer.ColumnName?.Equals(entry.Item2.Name, StringComparison.InvariantCultureIgnoreCase) ?? false) || // if whole column name is the same
-                (entry.Item2.Name != null && entry.Item2.Name.Contains(';') && entry.Item2.Name.Split(';').Contains(reducer.ColumnName ?? "", new StringComparer(true)))) // if one of merged columns matches reducer
+                (reduceMerged && entry.Item2.Name != null && entry.Item2.Name.Contains(';') && entry.Item2.Name.Split(';').Contains(reducer.ColumnName ?? "", new StringComparer(true)))) // if one of merged columns matches reducer
             {
                 return reducer.ColumnType == entry.Item1.ColumnType ? REDUCER_PRIORITY_COLUMN_TYPE : REDUCER_PRIORITY_COLUMN_ANY;
             } else
@@ -579,10 +582,10 @@ namespace ProteinCompare
             }
         }
 
-        private GlobalOptions.Meta.ParsedReducer FindHighestReducer((CsvValue, CsvColumn) entry, GlobalOptions.Meta.ParsedReducer[] reducers)
+        private GlobalOptions.Meta.ParsedReducer FindHighestReducer((CsvValue, CsvColumn) entry, GlobalOptions.Meta.ParsedReducer[] reducers, bool reduceMerged)
         {
             var list = reducers.ToList();
-            list.Sort((a, b) => GetReducerPriority(b, entry) - GetReducerPriority(a, entry));
+            list.Sort((a, b) => GetReducerPriority(b, entry, reduceMerged) - GetReducerPriority(a, entry, reduceMerged));
             return list.FirstOrDefault(new GlobalOptions.Meta.ParsedReducer(null, true, null, GlobalOptions.Meta.ValueReducers.None, null));
         }
 
@@ -687,7 +690,7 @@ namespace ProteinCompare
                         {
                             var value = row.Values[j];
                             var column = metatables[i].Columns[value.ColumnIndex];
-                            row.Values[j] = ReduceCsvValue(value, FindHighestReducer((value, column), reducers));
+                            row.Values[j] = ReduceCsvValue(value, FindHighestReducer((value, column), reducers, options.ReduceMerged));
                         }
                         pbar.Tick("Reducing metadata: table " + (i + 1) + "/" + metatables.Length);
                     }
