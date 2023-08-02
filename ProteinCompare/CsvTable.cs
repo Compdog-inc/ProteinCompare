@@ -292,6 +292,7 @@ namespace ProteinCompare
         public int ColumnIndex { get; set; }
         public CsvType ColumnType { get; set; }
         public bool IsList { get; }
+        public bool IsReduced { get; }
 
         public CsvValue(string value, int columnIndex, CsvType columnType)
         {
@@ -299,6 +300,7 @@ namespace ProteinCompare
             ColumnIndex = columnIndex;
             ColumnType = columnType;
             IsList = false;
+            IsReduced = false;
         }
 
         public CsvValue(string[] values, int columnIndex, CsvType columnType)
@@ -307,6 +309,16 @@ namespace ProteinCompare
             ColumnIndex = columnIndex;
             ColumnType = columnType;
             IsList = true;
+            IsReduced = false;
+        }
+
+        public CsvValue(string[] values, int columnIndex, CsvType columnType, bool isList, bool isReduced)
+        {
+            Values = values;
+            ColumnIndex = columnIndex;
+            ColumnType = columnType;
+            IsList = isList;
+            IsReduced = isReduced;
         }
 
         public readonly CsvValue WithList()
@@ -330,7 +342,7 @@ namespace ProteinCompare
 
             for (int i = 0; i < result.Length; i++)
             {
-                if (CsvParser.TryParseBoolean(Value, out bool tmp))
+                if (CsvParser.TryParseBoolean(Values[i], out bool tmp))
                     result[i] = tmp;
                 else
                     throw new InvalidCastException("Can't convert " + ColumnType + " to Boolean");
@@ -355,7 +367,7 @@ namespace ProteinCompare
 
             for (int i = 0; i < result.Length; i++)
             {
-                if (CsvParser.TryParseNumber(Value, out long tmp))
+                if (CsvParser.TryParseNumber(Values[i], out long tmp))
                     result[i] = tmp;
                 else
                     throw new InvalidCastException("Can't convert " + ColumnType + " to Number");
@@ -380,7 +392,7 @@ namespace ProteinCompare
 
             for (int i = 0; i < result.Length; i++)
             {
-                if (CsvParser.TryParseDouble(Value, out double tmp))
+                if (CsvParser.TryParseDouble(Values[i], out double tmp))
                     result[i] = tmp;
                 else
                     throw new InvalidCastException("Can't convert " + ColumnType + " to Double");
@@ -405,7 +417,7 @@ namespace ProteinCompare
 
             for (int i = 0; i < result.Length; i++)
             {
-                if (CsvParser.TryParseTime(Value, out TimeOnly tmp))
+                if (CsvParser.TryParseTime(Values[i], out TimeOnly tmp))
                     result[i] = tmp;
                 else
                     throw new InvalidCastException("Can't convert " + ColumnType + " to Time");
@@ -430,7 +442,7 @@ namespace ProteinCompare
 
             for (int i = 0; i < result.Length; i++)
             {
-                if (CsvParser.TryParseDate(Value, out DateOnly tmp))
+                if (CsvParser.TryParseDate(Values[i], out DateOnly tmp))
                     result[i] = tmp;
                 else
                     throw new InvalidCastException("Can't convert " + ColumnType + " to Date");
@@ -455,7 +467,7 @@ namespace ProteinCompare
 
             for (int i = 0; i < result.Length; i++)
             {
-                if (CsvParser.TryParseTimestamp(Value, out DateTime tmp))
+                if (CsvParser.TryParseTimestamp(Values[i], out DateTime tmp))
                     result[i] = tmp;
                 else
                     throw new InvalidCastException("Can't convert " + ColumnType + " to Timestamp");

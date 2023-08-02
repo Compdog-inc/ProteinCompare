@@ -136,6 +136,27 @@ namespace ProteinCompare
                 [Option('w', "columns", Required = false, HelpText = "List of column names to filter from the metadata.")]
                 public IEnumerable<string>? FilteredColumns { get; set; }
 
+                [Option('n', "reduce", Required = false, HelpText = "Reduce specified columns by mode.", MetaValue = "<ColumnName| -nothing(default)- >:<Boolean|Number|Double|Time|Date|Timestamp|String|Any| -nothing(Any)- > <None|Unique|Range|Step|StartEnd> <-nothing-|RangeJumpInterval|StepInterval>")]
+                public IEnumerable<string>? ReducerMap { get; set; }
+
+                public struct ParsedReducer
+                {
+                    public string? ColumnName { get; set; }
+                    public bool IsDefault { get; set; }
+                    public CsvType? ColumnType { get; set; } // null => Any
+                    public ValueReducers Reducer { get; set; }
+                    public (CsvType, object?)? Argument { get; set; }
+
+                    public ParsedReducer(string? columnName, bool isDefault, CsvType? columnType, ValueReducers reducer, (CsvType, object?)? argument)
+                    {
+                        ColumnName = columnName;
+                        IsDefault = isDefault;
+                        ColumnType = columnType;
+                        Reducer = reducer;
+                        Argument = argument;
+                    }
+                }
+
                 public bool Verbose { get; set; }
                 public bool NoError { get; set; }
                 public IEnumerable<char>? Delimiters { get; set; }
@@ -151,6 +172,15 @@ namespace ProteinCompare
                     None,
                     Count,
                     Intersect
+                }
+
+                public enum ValueReducers
+                {
+                    None,
+                    Unique,
+                    Range,
+                    Step,
+                    StartEnd
                 }
             }
         }
@@ -358,10 +388,271 @@ namespace ProteinCompare
             return 0;
         }
 
+        enum ParseReducerMap_parseStage
+        {
+            Column,
+            Reducer,
+            Argument
+        }
+
+        private GlobalOptions.Meta.ParsedReducer[] ParseReducerMap(IEnumerable<string>? reducermap)
+        {
+            if (reducermap == null)
+                return Array.Empty<GlobalOptions.Meta.ParsedReducer>();
+
+            List<GlobalOptions.Meta.ParsedReducer> list = new();
+
+            GlobalOptions.Meta.ParsedReducer currentParse = new();
+            ParseReducerMap_parseStage stage = ParseReducerMap_parseStage.Column;
+            foreach (var arg in reducermap.Count() == 1 ? reducermap.SelectMany(CommandLineUtils.ReadCommandLine) : reducermap) // support both native parsing and single string parsing
+            {
+                switch (stage)
+                {
+                    case ParseReducerMap_parseStage.Column:
+                        {
+                            if (arg == ":") // default:any
+                            {
+                                currentParse.IsDefault = true;
+                                currentParse.ColumnType = null;
+                            }
+                            else
+                            {
+                                var parts = arg.Split(':', 2);
+                                if (parts.Length == 1)
+                                {
+                                    currentParse.IsDefault = false;
+                                    currentParse.ColumnName = parts[0];
+                                }
+                                else
+                                {
+                                    if (string.IsNullOrEmpty(parts[0]))
+                                    {
+                                        currentParse.IsDefault = true;
+                                    }
+                                    else
+                                    {
+                                        currentParse.IsDefault = false;
+                                        currentParse.ColumnName = parts[0];
+                                    }
+
+                                    if (string.IsNullOrEmpty(parts[1])) // any
+                                    {
+                                        currentParse.ColumnType = null;
+                                    }
+                                    else
+                                    {
+                                        switch (parts[1].ToUpperInvariant())
+                                        {
+                                            case "BOOLEAN":
+                                                currentParse.ColumnType = CsvType.Boolean; break;
+                                            case "NUMBER":
+                                                currentParse.ColumnType = CsvType.Number; break;
+                                            case "DOUBLE":
+                                                currentParse.ColumnType = CsvType.Double; break;
+                                            case "TIME":
+                                                currentParse.ColumnType = CsvType.Time; break;
+                                            case "DATE":
+                                                currentParse.ColumnType = CsvType.Date; break;
+                                            case "TIMESTAMP":
+                                                currentParse.ColumnType = CsvType.Timestamp; break;
+                                            case "STRING":
+                                                currentParse.ColumnType = CsvType.String; break;
+                                            case "ANY":
+                                                currentParse.ColumnType = null; break;
+                                            default:
+                                                logger.Fatal("Invalid column type {column_type}.", parts[1]);
+                                                currentParse.ColumnType = null;
+                                                break;
+                                        }
+                                    }
+                                }
+                            }
+                            stage = ParseReducerMap_parseStage.Reducer;
+                        }
+                        break;
+                    case ParseReducerMap_parseStage.Reducer:
+                        switch (arg.ToUpperInvariant())
+                        {
+                            case "NONE":
+                                stage = ParseReducerMap_parseStage.Column;
+                                currentParse.Reducer = GlobalOptions.Meta.ValueReducers.None;
+                                list.Add(currentParse);
+                                currentParse = new();
+                                break;
+                            case "UNIQUE":
+                                stage = ParseReducerMap_parseStage.Column;
+                                currentParse.Reducer = GlobalOptions.Meta.ValueReducers.Unique;
+                                list.Add(currentParse);
+                                currentParse = new();
+                                break;
+                            case "RANGE":
+                                stage = ParseReducerMap_parseStage.Argument;
+                                currentParse.Reducer = GlobalOptions.Meta.ValueReducers.Range; break;
+                            case "STEP":
+                                stage = ParseReducerMap_parseStage.Argument;
+                                currentParse.Reducer = GlobalOptions.Meta.ValueReducers.Step; break;
+                            case "START-END":
+                                stage = ParseReducerMap_parseStage.Column;
+                                currentParse.Reducer = GlobalOptions.Meta.ValueReducers.StartEnd;
+                                list.Add(currentParse);
+                                currentParse = new();
+                                break;
+                            default:
+                                logger.Fatal("Invalid reducer type {reducer_type}.", arg);
+                                stage = ParseReducerMap_parseStage.Column;
+                                currentParse.Reducer = GlobalOptions.Meta.ValueReducers.None;
+                                list.Add(currentParse);
+                                currentParse = new();
+                                break;
+                        }
+                        break;
+                    case ParseReducerMap_parseStage.Argument:
+                        switch (currentParse.Reducer)
+                        {
+                            case GlobalOptions.Meta.ValueReducers.Range:
+                                {
+                                    var type = CsvParser.DetectContentType(arg);
+                                    if (type == CsvType.Double && CsvParser.TryParseDouble(arg, out double val))
+                                    {
+                                        currentParse.Argument = (CsvType.Double, (double)val);
+                                    } else if (type == CsvType.Number && CsvParser.TryParseNumber(arg, out long val2))
+                                    {
+                                        currentParse.Argument = (CsvType.Double, (double)val2);
+                                    }
+                                    else
+                                    {
+                                        logger.Fatal("Invalid range jump interval {jump_interval}:{type}.", arg, type);
+                                        currentParse.Argument = null;
+                                    }
+                                }
+                                break;
+                            case GlobalOptions.Meta.ValueReducers.Step:
+                                {
+                                    var type = CsvParser.DetectContentType(arg);
+                                    if (type == CsvType.Double && CsvParser.TryParseDouble(arg, out double val))
+                                    {
+                                        currentParse.Argument = (CsvType.Double, (double)val);
+                                    }
+                                    else if (type == CsvType.Number && CsvParser.TryParseNumber(arg, out long val2))
+                                    {
+                                        currentParse.Argument = (CsvType.Double, (double)val2);
+                                    }
+                                    else
+                                    {
+                                        logger.Fatal("Invalid step interval {step_interval}:{type}.", arg, type);
+                                        currentParse.Argument = null;
+                                    }
+                                }
+                                break;
+                            default:
+                                logger.Fatal("Unexpected argument stage for reducer {reducer_type}.", currentParse.Reducer);
+                                break;
+                        }
+                        stage = ParseReducerMap_parseStage.Column;
+                        list.Add(currentParse);
+                        currentParse = new();
+                        break;
+                }
+            }
+
+            return list.ToArray();
+        }
+
+        const int REDUCER_PRIORITY_DEFAULT_ANY = 0;
+        const int REDUCER_PRIORITY_DEFAULT_TYPE = 1;
+        const int REDUCER_PRIORITY_COLUMN_ANY = 2;
+        const int REDUCER_PRIORITY_COLUMN_TYPE = 3;
+
+        private int GetReducerPriority(GlobalOptions.Meta.ParsedReducer reducer, (CsvValue, CsvColumn) entry)
+        {
+            if (reducer.IsDefault)
+            {
+                return reducer.ColumnType == entry.Item1.ColumnType ? REDUCER_PRIORITY_DEFAULT_TYPE : REDUCER_PRIORITY_DEFAULT_ANY;
+            } else if (
+                (reducer.ColumnName?.Equals(entry.Item2.Name, StringComparison.InvariantCultureIgnoreCase) ?? false) || // if whole column name is the same
+                (entry.Item2.Name != null && entry.Item2.Name.Contains(';') && entry.Item2.Name.Split(';').Contains(reducer.ColumnName ?? "", new StringComparer(true)))) // if one of merged columns matches reducer
+            {
+                return reducer.ColumnType == entry.Item1.ColumnType ? REDUCER_PRIORITY_COLUMN_TYPE : REDUCER_PRIORITY_COLUMN_ANY;
+            } else
+            {
+                return reducer.ColumnType == entry.Item1.ColumnType ? REDUCER_PRIORITY_DEFAULT_TYPE : REDUCER_PRIORITY_DEFAULT_ANY;
+            }
+        }
+
+        private GlobalOptions.Meta.ParsedReducer FindHighestReducer((CsvValue, CsvColumn) entry, GlobalOptions.Meta.ParsedReducer[] reducers)
+        {
+            var list = reducers.ToList();
+            list.Sort((a, b) => GetReducerPriority(b, entry) - GetReducerPriority(a, entry));
+            return list.FirstOrDefault(new GlobalOptions.Meta.ParsedReducer(null, true, null, GlobalOptions.Meta.ValueReducers.None, null));
+        }
+
+        private CsvValue ReduceCsvValue(CsvValue value, GlobalOptions.Meta.ParsedReducer reducer)
+        {
+            switch (reducer.Reducer)
+            {
+                case GlobalOptions.Meta.ValueReducers.None:
+                    return value;
+                case GlobalOptions.Meta.ValueReducers.Unique:
+                    return value.ColumnType switch
+                    {
+                        CsvType.Boolean => BooleanListReducer.ToUnique(value),
+                        CsvType.Number => NumberListReducer.ToUnique(value),
+                        CsvType.Double => DoubleListReducer.ToUnique(value),
+                        CsvType.Time => TimeListReducer.ToUnique(value),
+                        CsvType.Date => DateListReducer.ToUnique(value),
+                        CsvType.Timestamp => TimestampListReducer.ToUnique(value),
+                        CsvType.String => StringListReducer.ToUnique(value),
+                        _ => value,
+                    };
+                case GlobalOptions.Meta.ValueReducers.Range:
+                    return value.ColumnType switch
+                    {
+                        CsvType.Boolean => BooleanListReducer.ToRange(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Number => NumberListReducer.ToRange(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Double => DoubleListReducer.ToRange(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Time => TimeListReducer.ToRange(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Date => DateListReducer.ToRange(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Timestamp => TimestampListReducer.ToRange(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.String => StringListReducer.ToRange(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        _ => value,
+                    };
+                case GlobalOptions.Meta.ValueReducers.Step:
+                    return value.ColumnType switch
+                    {
+                        CsvType.Boolean => BooleanListReducer.ToStep(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Number => NumberListReducer.ToStep(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Double => DoubleListReducer.ToStep(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Time => TimeListReducer.ToStep(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Date => DateListReducer.ToStep(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.Timestamp => TimestampListReducer.ToStep(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        CsvType.String => StringListReducer.ToStep(value, reducer.Argument != null ? (((double?)reducer.Argument.Value.Item2) ?? 10) : 10),
+                        _ => value,
+                    };
+                case GlobalOptions.Meta.ValueReducers.StartEnd:
+                    return value.ColumnType switch
+                    {
+                        CsvType.Boolean => BooleanListReducer.ToStartEnd(value),
+                        CsvType.Number => NumberListReducer.ToStartEnd(value),
+                        CsvType.Double => DoubleListReducer.ToStartEnd(value),
+                        CsvType.Time => TimeListReducer.ToStartEnd(value),
+                        CsvType.Date => DateListReducer.ToStartEnd(value),
+                        CsvType.Timestamp => TimestampListReducer.ToStartEnd(value),
+                        CsvType.String => StringListReducer.ToStartEnd(value),
+                        _ => value,
+                    };
+                default:
+                    logger.Error("Unknown interval reducer type {reducer_type}.", reducer.Reducer);
+                    return value;
+            }
+        }
+
         public int StartMeta(GlobalOptions.Meta options)
         {
             int exit = Load();
             if (exit != 0) return exit;
+
+            // parse options
+            var reducers = ParseReducerMap(options.ReducerMap);
 
             string[]? filter = null;
 
@@ -380,6 +671,29 @@ namespace ProteinCompare
             {
                 metatables = ProteinMetaCollector.ReduceByProtein(tables, options.ExcludedProteins, options.IgnoreCase, filter, options.FilteredColumns == null ? null : options.FilteredColumns.Any() ? options.FilteredColumns : null);
             }
+
+            logger.Info("Reducing metadata");
+            using (var pbar = new ProgressBar(metatables.Select(t => t.Rows.Length).Aggregate((a, b) => a + b), "Reducing metadata", new ProgressBarOptions()
+            {
+                ProgressBarOnBottom = true
+            }))
+            {
+                for (int i = 0; i < metatables.Length; i++)
+                {
+                    logger.Trace("Reducing table {current}/{total}", (i + 1), metatables.Length);
+                    foreach(var row in metatables[i].HasHeader ? metatables[i].Rows[1..] : metatables[i].Rows)
+                    {
+                        for(int j = 0; j < row.Values.Length; j++)
+                        {
+                            var value = row.Values[j];
+                            var column = metatables[i].Columns[value.ColumnIndex];
+                            row.Values[j] = ReduceCsvValue(value, FindHighestReducer((value, column), reducers));
+                        }
+                        pbar.Tick("Reducing metadata: table " + (i + 1) + "/" + metatables.Length);
+                    }
+                }
+            }
+            logger.Info("Reduction completed with {table_count} table(s).", metatables.Length);
 
             if (options.Preprocessor?.Contains(GlobalOptions.Meta.Preprocessors.Count) ?? false)
             {
