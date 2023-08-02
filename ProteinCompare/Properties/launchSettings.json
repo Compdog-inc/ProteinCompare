@@ -14,7 +14,7 @@
     },
     "Meta": {
       "commandName": "Project",
-      "commandLineArgs": "meta --preprocess intersect count -cvm --columns Ranking -o meta.csv -l csv -- test/*.csv test/*.tsv"
+      "commandLineArgs": "meta --preprocess intersect count -cem --columns Ranking \"PhastCons score\" -o meta.csv -l csv -- test/*.csv test/*.tsv"
     },
     "Help": {
       "commandName": "Project",
