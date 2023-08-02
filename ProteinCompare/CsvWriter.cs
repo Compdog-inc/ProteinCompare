@@ -12,7 +12,7 @@ namespace ProteinCompare
         {
             for (int j = 0; j < table.Rows.Length; j++)
             {
-                writer.Write(CsvTransformer.FormatRow(table.Rows[j].Values.Select(v => v.Value).ToArray(), dialect));
+                writer.Write(CsvTransformer.FormatRow(table.Rows[j].Values.Select(v => string.Join(',', v.Values)).ToArray(), dialect));
                 if (j < table.Rows.Length - 1)
                     writer.Write(rowDelimiter);
             }
@@ -24,7 +24,7 @@ namespace ProteinCompare
             {
                 for (int j = 0; j < tables[i].Rows.Length; j++)
                 {
-                    writer.Write(CsvTransformer.FormatRow(tables[i].Rows[j].Values.Select(v => v.Value).ToArray(), dialect));
+                    writer.Write(CsvTransformer.FormatRow(tables[i].Rows[j].Values.Select(v => string.Join(',', v.Values)).ToArray(), dialect));
                     if (j < tables[i].Rows.Length - 1)
                         writer.Write(rowDelimiter);
                 }
