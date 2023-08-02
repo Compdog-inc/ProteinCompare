@@ -14,7 +14,7 @@
     },
     "Meta": {
       "commandName": "Project",
-      "commandLineArgs": "meta --preprocess intersect count -cem --columns Ranking \"PhastCons score\" --reduce : unique :string none :number range 3 :double range 1 \"PhastCons score\":double range 30 --reduce-merged -- test/*.csv test/*.tsv"
+      "commandLineArgs": "meta --preprocess intersect count -cem --columns Ranking \"PhastCons score\" --reduce : unique :string none :number range 3 :double range 1 \"PhastCons score\":double range 30 --reduce-merged -o meta.csv -l csv -- test/*.csv test/*.tsv"
     },
     "Help": {
       "commandName": "Project",
