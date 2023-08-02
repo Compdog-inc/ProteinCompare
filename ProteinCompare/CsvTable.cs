@@ -192,7 +192,7 @@ namespace ProteinCompare
                         return a;
                     }
 
-                    if (a.Item2.Type == b.Item2.Type && (a.Item2.Name?.Equals(b.Item2.Name) ?? false))
+                    if (a.Item2.Type == b.Item2.Type && ((a.Item2.Name?.Equals(b.Item2.Name) ?? false) || (a.Item2.Name?.Split(';').Contains(b.Item2.Name) ?? false)))
                     {
                         return (new CsvValue(a.Item1.Values.Concat(b.Item1.Values).Distinct().ToArray(), i, a.Item1.ColumnType), a.Item2);
                     }
